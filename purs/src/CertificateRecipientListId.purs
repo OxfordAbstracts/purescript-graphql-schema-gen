@@ -1,0 +1,3 @@
+module Data.Id.CertificateRecipientListId where
+
+newtype CertificateRecipientListId = CertificateRecipientListId String

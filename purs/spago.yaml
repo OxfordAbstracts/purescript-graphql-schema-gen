@@ -1,0 +1,80 @@
+package:
+  name: purs
+  dependencies:
+    - argonaut
+    - console
+    - datetime
+    - effect
+    - foreign
+    - foreign-generic
+    - graphql-client
+    - prelude
+    - simple-json
+  test:
+    main: Test.Main
+    dependencies: []
+workspace:
+  packageSet:
+    registry: 60.0.0
+  extraPackages:
+    foreign-generic:
+      dependencies:
+        - aff
+        - console
+        - effect
+        - foreign
+        - prelude
+      git: https://github.com/2jt/purescript-foreign-generic.git
+      ref: b96f644502269ec27e446014c1fca4d73a86889e
+    graphql-client:
+      dependencies:
+        - aff
+        - affjax
+        - affjax-node
+        - affjax-web
+        - argonaut-codecs
+        - argonaut-core
+        - arrays
+        - bifunctors
+        - console
+        - control
+        - datetime
+        - debug
+        - effect
+        - either
+        - enums
+        - filterable
+        - foldable-traversable
+        - foreign
+        - foreign-object
+        - functions
+        - halogen-subscriptions
+        - heterogeneous
+        - http-methods
+        - integers
+        - lists
+        - maybe
+        - media-types
+        - newtype
+        - now
+        - nullable
+        - numbers
+        - ordered-collections
+        - partial
+        - prelude
+        - psci-support
+        - quickcheck
+        - record
+        - spec
+        - spec-discovery
+        - string-parsers
+        - strings
+        - transformers
+        - tuples
+        - typelevel-lists
+        - unfoldable
+        - unicode
+        - unsafe-coerce
+        - variant
+      git: https://github.com/OxfordAbstracts/purescript-graphql-client.git
+      ref: 50aaedbb95b7c180bf969ef49dc868d8e48142be

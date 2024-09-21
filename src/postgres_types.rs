@@ -184,7 +184,8 @@ all{} =
         name,
         values
             .iter()
-            .map(|v| format!("\"{}\" -> pure {}", v, v))
+            .zip(original_values.iter())
+            .map(|(v, o)| format!("\"{}\" -> pure {}", o, v))
             .collect::<Vec<String>>()
             .join("\n        "),
         name

@@ -11,6 +11,20 @@ use crate::generate_enum::write;
 pub type OutsideTypes = HashMap<String, Object>;
 type Object = HashMap<String, Mod>;
 
+pub fn fetch_all_outside_types() -> OutsideTypes {
+    let outside_types_env =
+        std::env::var("OUTSIDE_TYPES_YAML").expect("OUTSIDE_TYPES_YAML must be set");
+
+    let outside_type_locs: Vec<&str> = outside_types_env.split(",").collect();
+
+    let mut outside_types: OutsideTypes = HashMap::new();
+    for loc in outside_type_locs.iter() {
+        let types = fetch_outside_types(loc);
+        outside_types.extend(types);
+    }
+    outside_types
+}
+
 pub fn fetch_outside_types(location: &str) -> OutsideTypes {
     let mut f = File::open(location).unwrap();
     let mut s = String::new();

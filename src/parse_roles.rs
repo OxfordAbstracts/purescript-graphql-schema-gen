@@ -3,7 +3,7 @@ use std::{fs::File, io::Read};
 use yaml_rust2::{yaml, Yaml};
 
 pub fn parse_roles() -> Vec<String> {
-    let file_path: String = std::env::var("ROLES_YAML").expect("GRAPHQL_URL must be set");
+    let file_path: String = std::env::var("ROLES_YAML").expect("ROLES_YAML must be set");
     let mut f = File::open(file_path).unwrap();
     let mut s = String::new();
     f.read_to_string(&mut s).unwrap();

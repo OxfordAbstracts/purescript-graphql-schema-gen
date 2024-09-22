@@ -1,4 +1,4 @@
-use crate::purescript_argument::Argument;
+use super::purescript_argument::Argument;
 
 pub struct PurescriptType {
     pub name: String,
@@ -28,10 +28,6 @@ impl PurescriptType {
 
     pub fn set_newtype(&mut self, newtype: bool) {
         self.newtype = newtype;
-    }
-
-    pub fn set_value(&mut self, value: Argument) {
-        self.value = value;
     }
 
     pub fn to_string(&self) -> String {

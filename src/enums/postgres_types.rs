@@ -1,13 +1,11 @@
 use std::collections::HashMap;
 
-use dotenv::dotenv;
 use sqlx::{postgres::PgPoolOptions, Result};
 use stringcase::pascal_case;
 
-use crate::{generate_enum::write, purescript_enum::Enum};
+use crate::{purescript_gen::purescript_enum::Enum, write::write};
 
 pub async fn fetch_types() -> Result<HashMap<String, (String, String)>> {
-    dotenv().ok();
     let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
     let pool = PgPoolOptions::new()
         .max_connections(1)

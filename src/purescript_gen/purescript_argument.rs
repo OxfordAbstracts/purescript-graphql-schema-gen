@@ -1,5 +1,4 @@
-use crate::purescript_record::PurescriptRecord;
-
+use super::purescript_record::PurescriptRecord;
 pub enum Argument {
     Type(String, Vec<Argument>),
     Function(Box<PurescriptFunctionType>),

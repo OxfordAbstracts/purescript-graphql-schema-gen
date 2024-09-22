@@ -1,11 +1,9 @@
-use std::fs;
-use std::path::Path;
-
 use cynic_introspection::EnumType;
 use stringcase::pascal_case;
 
-use crate::purescript_enum::Enum;
-use crate::purescript_import::PurescriptImport;
+use crate::purescript_gen::purescript_enum::Enum;
+use crate::purescript_gen::purescript_import::PurescriptImport;
+use crate::write::write;
 
 pub async fn generate_enum(en: &EnumType, role: &str, imports: &mut Vec<PurescriptImport>) -> () {
     // Empty enums in Hasura are represented as a single value with the name "_PLACEHOLDER"
@@ -51,14 +49,6 @@ pub async fn generate_enum(en: &EnumType, role: &str, imports: &mut Vec<Purescri
             ),
         );
     }
-}
-
-pub fn write(path: &str, contents: &str) -> () {
-    let file_name = Path::new(path);
-    if let Some(p) = file_name.parent() {
-        fs::create_dir_all(p).unwrap();
-    };
-    fs::write(file_name, contents).unwrap();
 }
 
 fn first_upper(s: &str) -> String {

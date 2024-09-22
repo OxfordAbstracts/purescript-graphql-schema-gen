@@ -5,9 +5,8 @@ use std::{
 use stringcase::pascal_case;
 
 use crate::{
-    parse_outside_types::{Mod, OutsideTypes},
-    purescript_argument::Argument,
-    purescript_import::PurescriptImport,
+    config::parse_outside_types::{Mod, OutsideTypes},
+    purescript_gen::{purescript_argument::Argument, purescript_import::PurescriptImport},
 };
 
 pub fn as_gql_field(

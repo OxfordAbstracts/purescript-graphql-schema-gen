@@ -22,34 +22,6 @@ impl Field {
         self.type_name = Argument::new_type(type_name);
         self
     }
-    pub fn for_all(mut self, type_name: &str) -> Self {
-        self.type_name = Argument::new_for_all(type_name);
-        self
-    }
-    pub fn add_argument(mut self, arg: Argument) -> Self {
-        match &mut self.type_name {
-            Argument::Type(_, args) => args.push(arg),
-            Argument::ForAll(_, args) => args.push(arg),
-            _ => panic!("Cannot add argument to non-type field"),
-        }
-        self
-    }
-    pub fn maybe(self, type_name: &str) -> Self {
-        let s = self
-            .with_type("Maybe")
-            .add_argument(Argument::new_type(type_name));
-        s
-    }
-    pub fn maybe_for_all(self, type_name: &str) -> Self {
-        let s = self
-            .with_type("Maybe")
-            .add_argument(Argument::new_for_all(type_name));
-        s
-    }
-    pub fn maybe_arg(self, arg: Argument) -> Self {
-        let s = self.with_type("Maybe").add_argument(arg);
-        s
-    }
     pub fn show_field(&self) -> String {
         // if first character is uppercase, wrap in quotes
         if self.name.chars().next().unwrap().is_uppercase() {
@@ -67,10 +39,6 @@ impl PurescriptRecord {
             arguments: vec![],
             fields: vec![],
         }
-    }
-    pub fn add_argument(&mut self, arg: Argument) -> &mut Self {
-        self.arguments.push(arg);
-        self
     }
     fn validate_fields(&self, fields: Vec<&Field>) -> Option<String> {
         let to_add = fields
@@ -113,18 +81,6 @@ impl PurescriptRecord {
         }
 
         self.fields.push(field);
-        self
-    }
-    pub fn add_arguments(&mut self, args: Vec<Argument>) -> &mut Self {
-        self.arguments.extend(args);
-        self
-    }
-    pub fn add_fields(&mut self, fields: Vec<Field>) -> &mut Self {
-        if let Some(err) = self.validate_fields(fields.iter().collect()) {
-            panic!("{}", err);
-        }
-
-        self.fields.extend(fields);
         self
     }
 

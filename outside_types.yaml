@@ -1,0 +1,551 @@
+outside_types:
+  affiliations:
+    with: common
+  affiliations_without_hidden_responses:
+    with: common
+  allowed_attendees:
+    with: common
+  api_keys:
+    with: common
+  authors:
+    with: common
+    id: id=AuthorIdAuthorId
+  author_users:
+    with: common
+  author_versions:
+    with: common
+  author_fields:
+    with: common
+  author_field_responses:
+    with: common
+  browser_errors:
+    with: common
+  categories:
+    with: common
+    id: id=CategoryId
+    committee_member_user_id: id=UserId
+  certificates:
+    with: common
+    created_by: id=UserId
+    id: id=CertificateId
+  certificate_recipient_lists:
+    with: common
+    id: id=CertificateRecipientListId
+    certificate_id: id=CertificateId
+  certificate_recipients:
+    with: common
+    id: id=CertificateRecipientId
+    recipient_list_id: id=CertificateRecipientListId
+  certificate_recipient_merge_fields:
+    with: common
+    recipient_id: id=CertificateRecipientId
+  certificate_sent_emails:
+    with: common
+    certificate_id: id=CertificateId
+    recipient_id: id=CertificateRecipientId
+  certificates_invoices:
+    with: common
+    line_items: LineItems, GqlOverrides.CertificatesInvoiceLineItems
+  clients:
+    with: common
+  clients_permissions:
+    with: common
+  content_downloads:
+    with: common
+  content_permission_errors:
+    with: common
+  content_uploads:
+    with: common
+  delreg_registrations:
+    with: common
+    id: drId=DelRegRegistrationId
+    created_by: id=UserId
+    last_updated_by: id=UserId
+    delreg_registration_id: drId=DelRegRegistrationId
+    delreg_registration_serial: drId=DelRegRegistrationSerial
+  dr_addon_questions:
+    with: delreg_common
+  dr_addons:
+    with: delreg_common
+    id: drId=DrAddonId
+  dr_addon_tax_rules:
+    with: delreg_common
+  dr_addon_tax_rules_view:
+    with: delreg_common
+  dr_addon_coupons:
+    with: delreg_common
+  dr_addon_coupons_view:
+    with: delreg_common
+  dr_invoices_and_receipts:
+    with: delreg_common
+  dr_coupons:
+    with: delreg_common
+    id: drId=DrCouponId
+    discount_amount: drId=DrCouponDiscountAmount
+  dr_attendee_addons:
+    with: delreg_common
+    id: drId=DrAttendeeAddonId
+    coupon_discount_percentage: drId=DrCouponDiscountAmount
+  dr_attendee_addons_cancelled:
+    with: delreg_common
+  dr_attendee_question_response_options:
+    with: delreg_common
+  dr_attendee_question_responses:
+    with: delreg_common
+    id: drId=DrQuestionResponseId
+  dr_attendee_tickets:
+    with: delreg_common
+    id: drId=DrAttendeeTicketId
+    coupon_discount_percentage: drId=DrCouponDiscountAmount
+  dr_attendee_tickets_cancelled:
+    with: delreg_common
+  dr_transactions:
+    with: delreg_common
+    id: drId=DrTransactionId
+  dr_attendees:
+    with: delreg_common
+    id: drId=DrAttendeeId
+    answered_by: id=UserId
+  virtual_conference_homepage:
+    with: common
+  virtual_conference_homepage_tabs:
+    content: Document, OaComponents.DocumentEditor.Data.Document
+  dr_event_details:
+    with: delreg_common
+    stripe_account_id: drId=DrStripeAccountId
+  dr_event_landing:
+    with: delreg_common
+    content: Document, OaComponents.DocumentEditor.Data.Document
+    location: Location, DelegateRegistration.Landing.Location
+  dr_marketing_campaigns:
+    with: delreg_common
+    id: drId=DrMarketingCampaignId
+  dr_group_questions:
+    with: delreg_common
+    group_id: drId=DrTicketGroupId
+  dr_orders:
+    with: delreg_common
+    id: drId=DrOrderId
+    order_number: drId=DrOrderNumber
+  dr_email:
+    message_deltas: Deltas, OaQuill.Data.QuillDeltas
+    event_id: id=EventId
+  dr_emails_events:
+    message_deltas: Deltas, OaQuill.Data.QuillDeltas
+    event_id: id=EventId
+  dr_email_buttons_events:
+    event_id: id=EventId
+  dr_question_options:
+    with: delreg_common
+    id: drId=DrQuestionOptionId
+  dr_questions:
+    with: delreg_common
+    id: drId=DrQuestionId
+    depends_on: drId=DrQuestionId
+    rich_text: Deltas, OaQuill.Data.QuillDeltas
+    description: RawHtml, GqlOverrides.RawHTML # renamed type to avoid clash
+  dr_invoice_questions:
+    with: delreg_common
+    id: drId=DrInvoiceQuestionId
+  dr_invoice_question_responses:
+    with: delreg_common
+  dr_invoice_setup:
+    with: delreg_common
+    footer_deltas: Deltas, OaQuill.Data.QuillDeltas
+    header_deltas: Deltas, OaQuill.Data.QuillDeltas
+    offline_payment_details_deltas: Deltas, OaQuill.Data.QuillDeltas
+  dr_offline_payments_setup:
+    with: delreg_common
+    footer_deltas: Deltas, OaQuill.Data.QuillDeltas
+    header_deltas: Deltas, OaQuill.Data.QuillDeltas
+  dr_question_dependencies:
+    target_question_id: drId=DrQuestionId
+    question_id: drId=DrQuestionId
+    question_option_id: drId=DrQuestionOptionId
+  dr_service_fees_grouped:
+    event_id: id=EventId
+  dr_stripe_delayed_payments_customer:
+    added_by: id=UserId
+    event_id: id=EventId
+    customer: drId=DrStripeCustomerId
+  dr_ticket_addons:
+    with: delreg_common
+  dr_ticket_addons_view:
+    with: delreg_common
+  dr_ticket_tax_rules:
+    with: delreg_common
+  dr_ticket_tax_rules_view:
+    with: delreg_common
+  dr_ticket_coupons:
+    with: delreg_common
+  dr_ticket_coupons_view:
+    with: delreg_common
+  dr_attendee_ticket_count:
+    ticket_id: drId=DrTicketId
+    event_id: id=EventId
+  dr_attendee_addon_count:
+    addon_id: drId=DrAddonId
+    event_id: id=EventId
+  dr_attendee_ticket_tax_rules:
+    with: delreg_common
+  dr_attendee_addon_tax_rules:
+    with: delreg_common
+  dr_ticket_groups:
+    with: delreg_common
+    id: drId=DrTicketGroupId
+  dr_ticket_groups_unordered:
+    with: delreg_common
+  dr_tickets:
+    with: delreg_common
+    id: drId=DrTicketId
+    description_html: RawHtml, GqlOverrides.RawHTML # renamed type to avoid clash - aliasing would work too
+  dr_service_fee_charges:
+    with: common
+  # dr_payment_type_fees_aggregate: # why are these types odd?
+    # payment_type: DrOrderPaymentTypeEnum, GqlOverrides.DrOrderPaymentTypeEnum
+    # currency: DrCurrenciesEnum, GqlOverrides.DrCurrenciesEnum
+  dr_tax_rules:
+    with: delreg_common
+    id: drId=DrTaxRuleId
+    stripe_tax_rule_id: drId=DrStripeTaxRateId
+  event_emails:
+    with: common
+  errors:
+    with: common
+  events:
+    with: common
+    id: id=EventId
+    timezone: dataType=EventTimezone
+    secure_program_allowed_delegate_status: DelegateStatuses, GqlOverrides.DelegateStatus
+  events_permissions:
+    with: common
+  event_payments:
+    with: common
+  event_suspicions:
+    with: common
+  events_verified_sender_emails:
+    with: common
+  exhibitors:
+    with: common
+    id: id=ExhibitorId
+    colour: dataType=GqlColor
+  exhibitor_contacts:
+    with: common
+    id: id=ExhibitorContactId
+    assigned_to: id=ExhibitorRepresentativeId
+  exhibitor_resources:
+    with: common
+  exhibitor_representatives:
+    with: common
+    id: id=ExhibitorRepresentativeId
+  exhibitor_social_clicks:
+    with: common
+  exhibitor_tags:
+    id: id=ExhibitorTagId
+    event_id: id=EventId
+  exhibitor_tag:
+    id: id=ExhibitorTagId
+    event_id: id=EventId
+  exhibitors_tags:
+    exhibitor_tag_id: id=ExhibitorTagId
+    exhibitor_id: id=ExhibitorId
+  exhibitor_page_views:
+    with: common
+  exhibitor_users:
+    with: common
+  exhibitor_representative_users:
+    with: common
+  hasura_authentications:
+    with: common
+  hasura_authentications_by_country_code:
+    with: common
+  gql_api_keys:
+    with: common
+  ordered_program_submissions_by_title:
+    with: common
+    serial_number: id=SubmissionSerial
+  ordered_program_symposia_by_title:
+    with: common
+    serial_number: id=SymposiumSerial
+  ordered_program_submissions_by_category:
+    submission_ids: id=SubmissionId
+  program_dates:
+    with: common
+  program_downloads:
+    with: common
+  program_info:
+    with: common
+  program_session_categories:
+    id: id=CategoryId
+    program_session_category_type_id: id=CategoryTypeId
+  program_session_category_type:
+    id: id=CategoryTypeId
+    event_id: id=EventId
+  program_sessions_categories:
+    program_session_category_id: id=CategoryId
+    program_session_id: id=ProgramSessionId
+  program_sponsors:
+    id: id=ProgramSponsorId
+    with: common
+  program_sessions:
+    id: id=ProgramSessionId
+    description: dataType=RawHTML
+    with: common
+  program_sessions_recommended:
+    with: common
+  program_sessions_chairs:
+    with: common
+  program_tabs_type:
+    with: common
+  questions_stage_options:
+    with: common
+  question_responses:
+    with: common
+    value: id=RawResponse
+  question_response_versions:
+    with: common
+  questions:
+    with: common
+    id: id=QuestionId
+    depends_on: id=QuestionId
+  ratings:
+    with: common
+  reviews:
+    with: common
+    reviewer_user_id: id=UserId
+    review_id: id=ReviewId
+    id: id=ReviewId
+  review_dates:
+    review_id: id=ReviewId
+  reviewer_categories:
+    with: common
+  reviewer_questions:
+    with: common
+    id: id=ReviewerQuestionId
+    reviewer_question_id: id=ReviewerQuestionId
+  reviewer_question_responses:
+    with: common
+    id: id=ReviewerQuestionResponseId
+    review_id: id=ReviewId
+    reviewer_question_id: id=ReviewerQuestionId
+  stages:
+    with: common
+    id: id=StageId
+  submissions:
+    with: common
+    id: id=SubmissionId
+    serial_number: id=SubmissionSerial
+    content_id: id=SubmissionContentId
+    last_updated_by: id=UserId
+    created_by: id=UserId
+  search_program_session_names_fuzzy:
+    with: common
+  search_submission_titles_fuzzy:
+    with: common
+    value: id=RawResponse
+  search_symposium_titles_fuzzy:
+    with: common
+    value: id=RawResponse
+  sent_emails:
+    with: common
+    id: id=SentEmailId
+  sent_email_resends:
+    original_sent_email_id: id=SentEmailId
+  sessions:
+    with: common
+  session_chair_users:
+    with: common
+  session_chair_fields:
+    with: common
+  submission_analytics_events:
+    with: common
+    marketing_campaign_id: id=SubmissionAnalyticsMarketingCampaignId
+  submission_analytics_view:
+    with: common
+  submission_marketing_campaigns:
+    with: common
+    id: id=SubmissionAnalyticsMarketingCampaignId
+  submission_analytics_marketing_campaigns_view:
+    with: common
+    marketing_campaign_id: id=SubmissionAnalyticsMarketingCampaignId
+  submission_analytics_marketing_campaigns_all_stages_view:
+    with: common
+    marketing_campaign_id: id=SubmissionAnalyticsMarketingCampaignId
+  symposia:
+    with: common
+    id: id=SymposiumId
+    serial_number: id=SymposiumSerial
+    content_id: id=SymposiumContentId
+  symposium_reviews:
+    symposium_review_id: id=SymposiumReviewId
+  symposium_review_questions:
+    symposium_review_question_id: id=SymposiumReviewQuestionId
+  symposium_review_question_responses:
+    with: common
+    symposium_review_id: id=SymposiumReviewId
+    symposium_review_question_id: id=SymposiumReviewQuestionId
+  symposium_submission_session_times:
+    with: common
+  symposium_questions:
+    with: common
+    symposium_question_id: id=SymposiumQuestionId
+  symposium_person_users:
+    with: common
+  symposium_question_responses:
+    with: common
+    value: id=RawResponse
+  table_email_templates:
+    stage_id: id=StageId
+    created_by: id=UserId
+    body: Deltas, OaQuill.Data.QuillDeltas
+  track_review_auto_assigns:
+    with: common
+  users:
+    with: common
+    id: id=UserId
+  user_asked_for_ratings:
+    with: common
+  user_emails:
+    with: common
+  user_current:
+    user_id: id=UserId
+  verified_sender_emails:
+    with: common
+  virtual_conference_announcement_button_clicks:
+    with: common
+  virtual_conference_announcement_dismissals:
+    with: common
+  virtual_conference_announcement_views:
+    with: common
+  virtual_conference_announcements:
+    with: common
+    timezone: dataType=Timezone
+  virtual_conference_event_messages:
+    with: common
+    deleted_by: id=UserId
+  virtual_conference_direct_chat_blocks:
+    with: common
+    sender_id: id=UserId
+    recipient_id: id=UserId
+  virtual_conference_direct_messages:
+    with: common
+    sender_id: id=UserId
+    recipient_id: id=UserId
+  virtual_conference_session_bookmarks:
+    with: common
+  virtual_conference_event_interests:
+    with: common
+  virtual_conference_event_chat_blocks:
+    with: common
+  virtual_conference_event_messages_last_read:
+    with: common
+  virtual_conference_chat_groups:
+    with: common
+    creator_id: id=UserId
+  virtual_conference_chat_group_invitations:
+    with: common
+    inviter_id: id=UserId
+    invitee_id: id=UserId
+    disinvited_by: id=UserId
+  virtual_conference_group_chat_message_reads:
+    with: common
+  virtual_conference_chat_group_reports:
+    with: common
+  virtual_conference_group_chat_messages:
+    with: common
+    sender_id: id=UserId
+  virtual_conference_name_badge:
+    with: common
+    timezone: dataType=UserTimezone
+    location_timezone_last_acknowledged: dataType=UserTimezone
+  virtual_conference_user_interests:
+    with: common
+  virtual_conference_user_heartbeats:
+    with: common
+  virtual_conference_user_notifications_last_emailed:
+    with: common
+  virtual_conference_saved_badges:
+    with: common
+  virtual_conference_sessions:
+    with: common
+  virtual_conference_notification_preferences:
+    with: common
+  program_submissions_comments:
+    with: common
+  program_sessions_search_cache:
+    with: common
+  program_sessions_comments:
+    with: common
+  program_sessions_submissions:
+    with: common
+  program_sessions_symposia:
+    with: common
+  program_symposium_comments:
+    with: common
+  virtual_conference_submission_bookmarks:
+    with: common
+  virtual_conference_poster_views:
+    with: common
+  virtual_conference_requests:
+    with: common
+  virtual_conference_session_views:
+    with: common
+  virtual_conference_submission_views:
+    with: common
+  virtual_conference_symposium_views:
+    with: common
+  virtual_conference_group_video_calls:
+    with: common
+    creator_id: id=UserId
+  virtual_conference_group_video_call_dismissals:
+    with: common
+  vc_group_video_call_chat_notification_dismissals:
+    with: common
+  virtual_conference_group_video_call_joins:
+    with: common
+  virtual_conference_direct_video_calls:
+    with: common
+    callee_id: id=UserId
+    caller_id: id=UserId
+    ended_by: id=UserId
+  event_log:
+    event_id: id=EventId
+    created_by: id=UserId
+    event: EventLogEvent, GqlOverrides.EventLogEvent
+types:
+  id: $, Data.Id.$
+  drId: $, Data.Id.DelegateRegistration.$
+  override: $, GqlOverrides.$
+  dataType: $, OaVirtual.Data.$
+templates:
+  common:
+    author_id: id=AuthorId
+    client_id: id=ClientId
+    event_id: id=EventId
+    exhibitor_contact_id: id=ExhibitorContactId
+    exhibitor_id: id=ExhibitorId
+    program_session_category_id: id=CategoryId
+    program_session_id: id=ProgramSessionId
+    question_id: id=QuestionId
+    stage_id: id=StageId
+    submission_id: id=SubmissionId
+    symposium_id: id=SymposiumId
+    user_id: id=UserId
+  delreg_common:
+    addon_id: drId=DrAddonId
+    attendee_addon_id: drId=DrAttendeeAddonId
+    attendee_id: drId=DrAttendeeId
+    attendee_ticket_id: drId=DrAttendeeTicketId
+    coupon_id: drId=DrCouponId
+    event_id: id=EventId
+    invoice_question_id: drId=DrInvoiceQuestionId
+    order_id: drId=DrOrderId
+    question_id: drId=DrQuestionId
+    question_option_id: drId=DrQuestionOptionId
+    question_response_id: drId=DrQuestionResponseId
+    refund_transaction_id: drId=DrTransactionId
+    tax_rule_id: drId=DrTaxRuleId
+    ticket_group_id: drId=DrTicketGroupId
+    ticket_id: drId=DrTicketId
+    transaction_id: drId=DrTransactionId
+    user_id: id=UserId

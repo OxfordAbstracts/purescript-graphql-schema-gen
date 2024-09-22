@@ -1,0 +1,229 @@
+outside_types:
+  CurrentUser:
+    id: id=UserId
+  InputEmailRecipient:
+    user_id: id=UserId
+  CertificatesPrint:
+    certificate_id: id=CertificateId
+    recipient_ids: ids=CertificateRecipientId
+  DrTicket:
+    id: drId=DrTicketId
+  DrAddon:
+    with: delreg_common
+    id: drId=DrAddonId
+  DrOfflinePaymentInput:
+    order_id: drId=DrOrderId
+  DrOrderData:
+    order_number: drId=DrOrderNumber
+    coupon_id: drId=DrCouponId
+    currency: DrCurrenciesEnum, GeneratedGql.Enum.DrCurrenciesEnum
+    payment_type: DrOrderPaymentTypeEnum, GeneratedGql.Enum.DrOrderPaymentTypeEnum
+  DrRegenTransactionReceiptInput:
+    transaction_id: drId=DrTransactionId
+  DrOfflineRefundSubmitInput:
+    with: delreg_common
+  DrAmendmentSubmit:
+    with: delreg_common
+  DrAmendmentRemovedAddon:
+    with: delreg_common
+    id: drId=DrAttendeeId
+    attendee_addon_id: drId=DrAttendeeAddonId
+  DrAmendmentRemovedTicket:
+    with: delreg_common
+    id: drId=DrAttendeeId
+  DrAmendmentAddedAddon:
+    with: delreg_common
+  DrAmendmentAddedTicket:
+    with: delreg_common
+  DrAttendeeMarkOfflineInput:
+    with: delreg_common
+  DrInvoiceResponse:
+    id: drId=DrInvoiceQuestionId
+  DrInvoiceQuestion:
+    id: drId=DrInvoiceQuestionId
+  InvoiceQuestion:
+    id: drId=DrInvoiceQuestionId
+  DrRefundPlanResponse: StripeRefundError, GqlOverrides.StripeRefundError
+  DrRegisterAddonsInput:
+    order_id: drId=DrOrderId
+    coupon: drId=DrCouponId
+  DrRegisterAddon:
+    addon_id: drId=DrAddonId
+    ticket_id: drId=DrTicketId
+    attendee_ticket_id: drId=DrAttendeeTicketId
+    attendee_id: drId=DrAttendeeId
+  DrRegisterAddonsOutput:
+    order_id: drId=DrOrderId
+  DrRegisterAddonResponse:
+    attendee_id: drId=DrAttendeeId
+    question_id: drId=DrQuestionId
+    response_option_ids: drIds=DrQuestionOptionId
+  DrOrderUser:
+    id: id=UserId
+  DrOrderUserView:
+    user_id: id=UserId
+  DrOrderAttendee:
+    answered_by: id=UserId
+    id: drId=DrAttendeeId
+  DrOrderTransaction:
+    id: drId=DrTransactionId
+    transaction_type: DrTransactionTypesEnum, GeneratedGql.Enum.DrTransactionTypesEnum
+  DrOrderTicket:
+    status: DrLineItemStatusesEnum, GeneratedGql.Enum.DrLineItemStatusesEnum
+    id: drId=DrAttendeeTicketId
+    ticket_id: drId=DrTicketId
+    coupon_id: drId=DrCouponId
+    transaction_id: drId=DrTransactionId
+    refund_transaction_id: drId=DrTransactionId
+    coupon_discount_percentage: drId=DrCouponDiscountAmount
+    coupon_discount_type: DrCouponDiscountTypeEnum, GeneratedGql.Enum.DrCouponDiscountTypeEnum
+  DrOrderGroup:
+    id: drId=DrTicketGroupId
+  DrOrderAddonData:
+    id: drId=DrAddonId
+    ticket_id: drId=DrTicketId
+  DrOrderTaxRuleAtPurchase:
+    tax_rule_id: drId=DrTaxRuleId
+  DrOrderClient:
+    vat_code: VatCode, GeneratedPostgres.Enum.VatCode
+  DrOrderTicketData:
+    id: drId=DrTicketId
+    ticket_group_id: drId=DrTicketGroupId
+    description_html: RawHtml, GqlOverrides.RawHTML # changed type name to avoid clashing imports - will need to alias
+  DrOrderAddon:
+    status: DrLineItemStatusesEnum, GeneratedGql.Enum.DrLineItemStatusesEnum
+    ticket_id: drId=DrTicketId
+    coupon_id: drId=DrCouponId
+    transaction_id: drId=DrTransactionId
+    refund_transaction_id: drId=DrTransactionId
+    addon_id: drId=DrAddonId
+    coupon_discount_percentage: drId=DrCouponDiscountAmount
+    coupon_discount_type: DrCouponDiscountTypeEnum, GeneratedGql.Enum.DrCouponDiscountTypeEnum
+  DrOrderQuestionResponse:
+    id: drId=DrQuestionResponseId
+    question_id: drId=DrQuestionId
+  DrOrderQuestionOption:
+    id: drId=DrQuestionOptionId
+  DrPaypalCreateOrder:
+    order_id: drId=DrOrderId
+    event_id: id=EventId
+    coupon: drId=DrCouponId
+  DrInvoiceLink:
+    order_id: drId=DrOrderId
+  DrResponse:
+    question_id: drId=DrQuestionId
+    response_option_ids: drIds=DrQuestionOptionId
+  DrAttendeeSubmit:
+    attendee_id: drId=DrAttendeeId
+  DrAuthorizeWebhookI:
+    event_id: id=EventId
+    order_number: drId=DrOrderNumber
+  DrSendCancelledAttendeeEmailInput:
+    attendee: drId=DrAttendeeId
+  DrRegisterOutput:
+    order_id: drId=DrOrderId
+  DrAdminAddon:
+    with: delreg_common
+    id: drId=DrAddonId
+  DrAdminGroup:
+    with: delreg_common
+    id: drId=DrTicketGroupId
+  DrAdminTicket:
+    with: delreg_common
+    id: drId=DrTicketId
+    description_html: RawHtml, GqlOverrides.RawHTML # changed type name to avoid clashing imports - will need to alias
+  DrAuthorizePaymentLinkInput:
+    with: delreg_common
+  DrAuthorizePaymentLinkOpenAccessInput:
+    with: delreg_common
+  DrPaypalConfirm:
+    order_id: drId=DrOrderId
+    id: drId=DrPaypalOrderId
+  DrPayPalTicket:
+    ticket_id: drId=DrTicketId
+  DrPayPalAddon:
+    ticket_id: drId=DrTicketId
+    addon_id: drId=DrAddonId
+  DrPayPalCaptureOutput:
+    error: DrPayPalCaptureError, GqlOverrides.PayPalCaptureError
+  DrStripePaymentLinkInput:
+    with: delreg_common
+  DrStripePaymentLinkOpenAccessInput:
+    with: delreg_common
+  DrTaxRule:
+    id: drId=DrTaxRuleId
+  DrRegisterInput:
+    order_id: drId=DrOrderId
+    coupon_id: drId=DrCouponId
+  DrAddonIdCollection:
+    with: delreg_common
+  DrTicketIdCollection:
+    with: delreg_common
+  DrCouponCheck:
+    id: drId=DrCouponId
+    discount_amount: drId=DrCouponDiscountAmount
+    discount_type: DrCouponDiscountTypeEnum, GeneratedGql.Enum.DrCouponDiscountTypeEnum
+  DrCoupon:
+    id: drId=DrCouponId
+  DrPaypalCaptureOrderInput:
+    event_id: id=EventId
+  DrOrderEvent:
+    id: id=EventId
+  EmailSendFailure:
+    id: id=SentEmailId
+  ResendEmailInput:
+    sent_email_ids: ids=SentEmailId
+  SentEmailInformationInput:
+    id: id=SentEmailId
+  PostmarkMessageEvent:
+    Type: PostmarkEventType, GqlOverrides.PostmarkEventType
+  ReviewWithCompleteStatus:
+    with: delreg_common
+    id: id=ReviewId
+    submission_id: id=SubmissionId
+    reviewer_user_id: id=UserId
+    stage_id: id=StageId
+  SendCertificatesInput:
+    certificate_recipient_list_id: id=CertificateRecipientListId
+    recipient_ids: ids=CertificateRecipientId
+    certificate_id: id=CertificateId
+  TrialStatusAndEvent:
+    event_id: id=EventId
+    trial_status: TrialStatus, GqlOverrides.TrialStatus
+  AddAddonOutput:
+    event_id: id=EventId
+  EventsUpgradePackageInput:
+    new_package: PricePackage, GeneratedPostgres.Enum.PricePackage
+  UpgradePackageOutput:
+    event_id: id=EventId
+  OnboardingCreateEvent:
+    frequency: FrequencyType, GeneratedPostgres.Enum.FrequencyType
+    user_id: id=UserId
+  OnboardingCreateClient:
+    region: override=ClientRegionActionInput
+  OnboardingCreateEventSuccess:
+    event_id: id=EventId
+    client_id: id=ClientId
+    stage_id: id=StageId
+types:
+  id: $, Data.Id.$
+  ids: $s, Data.Id.$
+  drId: $, Data.Id.DelegateRegistration.$
+  drIds: $s, Data.Id.DelegateRegistration.$
+  override: $, GqlOverrides.$
+  dataType: $, OaVirtual.Data.$
+templates:
+  delreg_common:
+    event_id: id=EventId
+    user_id: id=UserId
+    attendee_id: drId=DrAttendeeId
+    order_id: drId=DrOrderId
+    ticket_id: drId=DrTicketId
+    addon_id: drId=DrAddonId
+    question_id: drId=DrQuestionId
+    question_response_id: drId=DrQuestionResponseId
+    question_option_id: drId=DrQuestionOptionId
+    ticket_group_id: drId=DrTicketGroupId
+    tax_rule_id: drId=DrTaxRuleId
+    coupon_id: drId=DrCouponId
+    invoice_question_id: drId=DrInvoiceQuestionId

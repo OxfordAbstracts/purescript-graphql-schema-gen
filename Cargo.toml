@@ -8,13 +8,12 @@ cynic = { version = "3.8.0", features = ["http-reqwest", "http-reqwest-blocking"
 cynic-introspection = "3.8.0"
 dotenv = "0.15.0"
 futures = "0.3.30"
-graphql-parser = "0.4.0"
-graphql-query = "1.0.0"
 phf = { version = "0.11.2", features = ["macros"] }
 reqwest = "0.12.7"
 sqlx = { version = "0.8.2", features = ["postgres", "runtime-tokio"] }
 stringcase = "0.3.0"
 tokio = { version = "1.40.0", features = ["full"] }
+yaml-rust2 = "0.8.1"
 
 [[bin]]
 edition = "2021"

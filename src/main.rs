@@ -9,6 +9,7 @@ use cynic_introspection::{FieldWrapping, IntrospectionQuery, Type, WrappingType}
 use dotenv::dotenv;
 use generate_enum::{generate_enum, write};
 use hasura_types::as_gql_field;
+use parse_outside_types::{fetch_outside_types, OutsideTypes};
 use postgres_types::fetch_types;
 use purescript_argument::Argument;
 use purescript_import::PurescriptImport;
@@ -19,7 +20,7 @@ use stringcase::pascal_case;
 use tokio::spawn;
 mod generate_enum;
 mod hasura_types;
-mod outside_types;
+mod parse_outside_types;
 mod postgres_types;
 mod purescript_argument;
 mod purescript_enum;
@@ -30,6 +31,14 @@ mod purescript_type;
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    let outside_types_gen = std::time::Instant::now();
+    let mut outside_types = fetch_outside_types("./outside_types.yaml");
+    let outside_types_in_actions = fetch_outside_types("./outside_types_in_actions.yaml");
+    outside_types.extend(outside_types_in_actions);
+    println!(
+        "Generated outside types hash in {:.1}s",
+        outside_types_gen.elapsed().as_secs_f32()
+    );
     // time the main function
     let type_gen_timer = std::time::Instant::now();
     let postgres_types = fetch_types().await.unwrap();
@@ -70,10 +79,11 @@ async fn main() -> Result<()> {
 
     // Postgres types are shared between all roles
     let types_ = Arc::new(Mutex::new(postgres_types));
+    let outside_types = Arc::new(Mutex::new(outside_types));
 
     let mut tasks = Vec::with_capacity(roles.len());
     for role in roles.iter() {
-        tasks.push(spawn(fetch(role, types_.clone())));
+        tasks.push(spawn(fetch(role, types_.clone(), outside_types.clone())));
     }
 
     let mut outputs = Vec::with_capacity(tasks.len());
@@ -102,6 +112,7 @@ async fn main() -> Result<()> {
 async fn fetch(
     role: &str,
     postgres_types: Arc<Mutex<HashMap<String, (String, String)>>>,
+    outside_types: Arc<Mutex<OutsideTypes>>,
 ) -> Result<String> {
     dotenv().ok();
     let graphql_url = std::env::var("GRAPHQL_URL").expect("GRAPHQL_URL must be set");
@@ -193,6 +204,7 @@ async fn fetch(
                                 &arg.ty.name,
                                 &mut imports,
                                 &postgres_types,
+                                &outside_types,
                             ),
                             &arg.ty.wrapping,
                             &mut imports,
@@ -209,6 +221,7 @@ async fn fetch(
                             &field.ty.name,
                             &mut imports,
                             &postgres_types,
+                            &outside_types,
                         ),
                         &field.ty.wrapping,
                         &mut imports,
@@ -275,6 +288,7 @@ async fn fetch(
                             &field.ty.name,
                             &mut imports,
                             &postgres_types,
+                            &outside_types,
                         ),
                         &field.ty.wrapping,
                         &mut imports,

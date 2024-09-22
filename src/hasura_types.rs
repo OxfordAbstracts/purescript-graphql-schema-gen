@@ -5,7 +5,8 @@ use std::{
 use stringcase::pascal_case;
 
 use crate::{
-    outside_types::OUTSIDE_TYPES, purescript_argument::Argument,
+    parse_outside_types::{Mod, OutsideTypes},
+    purescript_argument::Argument,
     purescript_import::PurescriptImport,
 };
 
@@ -15,8 +16,9 @@ pub fn as_gql_field(
     name: &str,
     imports: &mut Vec<PurescriptImport>,
     purs_types: &Arc<Mutex<HashMap<String, (String, String)>>>,
+    outside_types: &Arc<Mutex<OutsideTypes>>,
 ) -> Argument {
-    let (import, type_) = outside_type(object, field, name, &purs_types);
+    let (import, type_) = outside_type(object, field, name, &purs_types, &outside_types);
     if let Some(i) = import {
         imports.push(PurescriptImport::new(&i).add_specified(&type_));
         return Argument::new_type("AsGql")
@@ -33,8 +35,9 @@ fn outside_type(
     field: &str,
     name: &str,
     purs_types: &Arc<Mutex<HashMap<String, (String, String)>>>,
+    outside_types: &Arc<Mutex<OutsideTypes>>,
 ) -> (Option<String>, String) {
-    if let Some((import, type_)) = get_outside_type(object, field) {
+    if let Some((import, type_)) = get_outside_type(object, field, outside_types) {
         (Some(import), type_)
     } else if let Some((import, type_)) = purs_types.lock().unwrap().get(name) {
         (Some(import.clone()), type_.clone())
@@ -43,12 +46,18 @@ fn outside_type(
     }
 }
 
-fn get_outside_type(object: &str, field: &str) -> Option<(String, String)> {
-    OUTSIDE_TYPES
+fn get_outside_type(
+    object: &str,
+    field: &str,
+    outside_types: &Arc<Mutex<OutsideTypes>>,
+) -> Option<(String, String)> {
+    outside_types
+        .lock()
+        .unwrap()
         .get(object)
         .map(|table| table.get(field))
         .flatten()
-        .map(|(import, type_)| (import.to_string(), type_.to_string()))
+        .map(|Mod { import, name }| (import.to_string(), name.to_string()))
 }
 
 pub fn base_types(type_name: &str) -> &str {

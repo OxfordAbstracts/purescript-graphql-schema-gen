@@ -245,20 +245,6 @@ async fn fetch(
                     }
                     "json" | "jsonb" => add_import("Data.Argonaut.Core", "Json", &mut imports),
                     "time" => add_import("Data.Time", "Time", &mut imports),
-                    "CertificateId" => {
-                        add_import("Data.Id.CertificateId", "CertificateId", &mut imports)
-                    }
-                    "TrialStatus" => add_import("Data.Id.TrialStatus", "TrialStatus", &mut imports),
-                    "CertificateRecipientListId" => add_import(
-                        "Data.Id.CertificateRecipientListId",
-                        "CertificateRecipientListId",
-                        &mut imports,
-                    ),
-                    "CertificateRecipientId" => add_import(
-                        "Data.Id.CertificateRecipientId",
-                        "CertificateRecipientId",
-                        &mut imports,
-                    ),
                     _ => {}
                 }
             }

@@ -170,12 +170,12 @@ fn write_types(outside_types: &OutsideTypes) {
         }
     }
     for module in to_write.iter() {
-        if module.import.contains("GeneratedPostgres") {
+        if module.import.contains("GeneratedPostgres") || module.import.contains("GeneratedGql") {
             // Don't bother generating mock for generated enum types
             continue;
         }
         write(
-            format!("./purs/src/Schema/Ids/{}.purs", &module.import).as_str(),
+            format!("./purs/src/MockedIds/{}.purs", &module.import).as_str(),
             &mocked_id_module(&module),
         );
     }

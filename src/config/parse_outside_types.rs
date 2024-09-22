@@ -6,7 +6,7 @@ use std::{
 
 use yaml_rust2::{yaml, Yaml};
 
-use crate::generate_enum::write;
+use crate::write::write;
 
 pub type OutsideTypes = HashMap<String, Object>;
 type Object = HashMap<String, Mod>;

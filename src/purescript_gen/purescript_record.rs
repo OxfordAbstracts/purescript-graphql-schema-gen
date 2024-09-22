@@ -1,4 +1,4 @@
-use crate::purescript_argument::Argument;
+use super::purescript_argument::Argument;
 
 pub struct PurescriptRecord {
     pub name: String,
@@ -20,6 +20,10 @@ impl Field {
     }
     pub fn with_type(mut self, type_name: &str) -> Self {
         self.type_name = Argument::new_type(type_name);
+        self
+    }
+    pub fn with_type_arg(mut self, type_name: Argument) -> Self {
+        self.type_name = type_name;
         self
     }
     pub fn show_field(&self) -> String {

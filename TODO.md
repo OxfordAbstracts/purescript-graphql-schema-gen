@@ -1,5 +1,5 @@
 - [x] Add roles as config
-- [ ] Add outside type files as env vars
+- [x] Add outside type files as env vars
 - [ ] Directives
 - [ ] Tests
 - [ ] Documentation of config

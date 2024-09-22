@@ -9,7 +9,7 @@ use cynic_introspection::{FieldWrapping, IntrospectionQuery, Type, WrappingType}
 use dotenv::dotenv;
 use generate_enum::{generate_enum, write};
 use hasura_types::as_gql_field;
-use parse_outside_types::{fetch_outside_types, OutsideTypes};
+use parse_outside_types::{fetch_all_outside_types, OutsideTypes};
 use parse_roles::parse_roles;
 use postgres_types::fetch_types;
 use purescript_argument::Argument;
@@ -34,16 +34,11 @@ mod purescript_type;
 #[tokio::main]
 async fn main() -> Result<()> {
     dotenv().ok();
-    let outside_types_gen = std::time::Instant::now();
-    let mut outside_types = fetch_outside_types("./outside_types.yaml");
-    let outside_types_in_actions = fetch_outside_types("./outside_types_in_actions.yaml");
-    outside_types.extend(outside_types_in_actions);
-    println!(
-        "Generated outside types hash in {:.1}s",
-        outside_types_gen.elapsed().as_secs_f32()
-    );
+
     // time the main function
     let type_gen_timer = std::time::Instant::now();
+
+    // Generate postgres enum types
     let postgres_types = fetch_types().await.unwrap();
     let num_types = postgres_types.len();
     println!(
@@ -54,15 +49,12 @@ async fn main() -> Result<()> {
 
     let start = std::time::Instant::now();
 
+    // Parse all outside type config
+    let outside_types: OutsideTypes = fetch_all_outside_types();
+
+    // Fetch role config
     let roles: Vec<String> = parse_roles();
     let num_roles = roles.len();
-
-    // let roles = vec!["Test", "Test2"];
-    // let mut roles = vec![];
-
-    // for role in rs.into_iter() {
-    //     roles.push(*role.as_str());
-    // }
 
     // Postgres types are shared between all roles
     let types_ = Arc::new(Mutex::new(postgres_types));

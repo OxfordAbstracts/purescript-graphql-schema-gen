@@ -10,6 +10,7 @@ use dotenv::dotenv;
 use generate_enum::{generate_enum, write};
 use hasura_types::as_gql_field;
 use parse_outside_types::{fetch_outside_types, OutsideTypes};
+use parse_roles::parse_roles;
 use postgres_types::fetch_types;
 use purescript_argument::Argument;
 use purescript_import::PurescriptImport;
@@ -21,6 +22,7 @@ use tokio::spawn;
 mod generate_enum;
 mod hasura_types;
 mod parse_outside_types;
+mod parse_roles;
 mod postgres_types;
 mod purescript_argument;
 mod purescript_enum;
@@ -31,6 +33,7 @@ mod purescript_type;
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    dotenv().ok();
     let outside_types_gen = std::time::Instant::now();
     let mut outside_types = fetch_outside_types("./outside_types.yaml");
     let outside_types_in_actions = fetch_outside_types("./outside_types_in_actions.yaml");
@@ -51,47 +54,33 @@ async fn main() -> Result<()> {
 
     let start = std::time::Instant::now();
 
-    let roles = vec![
-        "AdminDashboard",
-        "MainAppServer",
-        "E2E",
-        "Review",
-        "SubmitterReviews",
-        "ApiUser",
-        "AuthorForm",
-        "ClientAdmin",
-        "OwnedContent",
-        "ProgramPublic",
-        "VirtualConferenceAttendee",
-        "VirtualConferencePublicEvent",
-        "VirtualConferenceServer",
-        "SOAA",
-        "ActionsServer",
-        "VirtualConferencePublic",
-        "Goals",
-        "DrAttendee",
-        "Anonymous",
-        "VirtualConferenceAdmin",
-        "VirtualConferenceAttendeeNotVerified",
-        "AllUsers",
-        "Onboarding",
-    ];
+    let roles: Vec<String> = parse_roles();
+    let num_roles = roles.len();
+
+    // let roles = vec!["Test", "Test2"];
+    // let mut roles = vec![];
+
+    // for role in rs.into_iter() {
+    //     roles.push(*role.as_str());
+    // }
 
     // Postgres types are shared between all roles
     let types_ = Arc::new(Mutex::new(postgres_types));
     let outside_types = Arc::new(Mutex::new(outside_types));
 
-    let mut tasks = Vec::with_capacity(roles.len());
+    let mut tasks = Vec::with_capacity(num_roles);
     for role in roles.iter() {
-        tasks.push(spawn(fetch(role, types_.clone(), outside_types.clone())));
+        tasks.push(spawn(fetch(
+            role.clone(),
+            types_.clone(),
+            outside_types.clone(),
+        )));
     }
 
     let mut outputs = Vec::with_capacity(tasks.len());
     for task in tasks {
         outputs.push(task.await.unwrap().unwrap());
     }
-
-    let num_roles = roles.len();
 
     for (output, role) in outputs.into_iter().zip(roles.into_iter()) {
         write(
@@ -110,16 +99,16 @@ async fn main() -> Result<()> {
 }
 
 async fn fetch(
-    role: &str,
+    role: String,
     postgres_types: Arc<Mutex<HashMap<String, (String, String)>>>,
     outside_types: Arc<Mutex<OutsideTypes>>,
 ) -> Result<String> {
-    dotenv().ok();
     let graphql_url = std::env::var("GRAPHQL_URL").expect("GRAPHQL_URL must be set");
+    let graphql_secret = std::env::var("GRAPHQL_SECRET").expect("GRAPHQL_SECRET must be set");
     let introspection_data = reqwest::Client::new()
         .post(graphql_url)
-        .header("x-hasura-admin-secret", "localdev")
-        .header("x-hasura-role", role)
+        .header("x-hasura-admin-secret", graphql_secret)
+        .header("x-hasura-role", &role)
         .run_graphql(IntrospectionQuery::build(()))
         .await
         .unwrap()
@@ -253,7 +242,7 @@ async fn fetch(
                     continue;
                 }
 
-                generate_enum(&en, role, &mut imports).await;
+                generate_enum(&en, &role, &mut imports).await;
             }
             Type::InputObject(obj) => {
                 if obj.name.starts_with("__") {
@@ -304,7 +293,7 @@ async fn fetch(
     }
     records.push(schema_record);
 
-    let module = format!("module {} where", role);
+    let module = format!("module {} where", &role);
 
     types.sort_by_key(|t| t.name.clone());
     types.dedup_by_key(|t| t.name.clone());

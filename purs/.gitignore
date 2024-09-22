@@ -12,3 +12,5 @@ generated-docs/
 .spago
 src/Schema
 src/GeneratedPostgres
+src/GeneratedGql
+src/MockedIds

@@ -8,6 +8,8 @@ use crate::purescript_enum::Enum;
 use crate::purescript_import::PurescriptImport;
 
 pub async fn generate_enum(en: &EnumType, role: &str, imports: &mut Vec<PurescriptImport>) -> () {
+    // Empty enums in Hasura are represented as a single value with the name "_PLACEHOLDER"
+    // purescript enums cannot start with an underscore, so we need to replace it with a different placeholder
     let values = if en.values.iter().next().unwrap().name == "_PLACEHOLDER" {
         vec!["ENUM_PLACEHOLDER".to_string()]
     } else {
@@ -15,20 +17,40 @@ pub async fn generate_enum(en: &EnumType, role: &str, imports: &mut Vec<Purescri
     };
     let original_values: Vec<String> = en.values.iter().map(|v| v.name.clone()).collect();
     let name: String = pascal_case(&en.name);
-    let e = Enum::new(&name).with_values(&values).to_string();
 
-    let instances = enum_instances(&name, &values, &original_values);
+    // Some enums are shared between all schemas
+    if name.ends_with("Enum") || name.ends_with("OrderBy") || name.ends_with("CursorOrdering") {
+        let e = Enum::new(&name).with_values(&values).to_string();
 
-    let module_name = format!("GeneratedGql.Schema.{}.Enum.{}", role, name);
-    imports.push(PurescriptImport::new(&module_name).add_specified(&name));
+        let instances = enum_instances(&name, &values, &original_values);
 
-    write(
-        &format!("./purs/src/Schema/{}/Enum/{}.purs", role, name),
-        &format!(
-            "module {} ({}) where\n\n{}\n\n{}{}",
-            module_name, name, MODULE_IMPORTS, e, instances
-        ),
-    );
+        let module_name = format!("GeneratedGql.Enum.{}", name);
+        imports.push(PurescriptImport::new(&module_name).add_specified(&name));
+
+        write(
+            &format!("./purs/src/GeneratedGql/Enum/{}.purs", name),
+            &format!(
+                "module {} ({}) where\n\n{}\n\n{}{}",
+                module_name, name, MODULE_IMPORTS, e, instances
+            ),
+        );
+    // Otherwise write schema-specific enums
+    } else {
+        let e = Enum::new(&name).with_values(&values).to_string();
+
+        let instances = enum_instances(&name, &values, &original_values);
+
+        let module_name = format!("GeneratedGql.Schema.{}.Enum.{}", role, name);
+        imports.push(PurescriptImport::new(&module_name).add_specified(&name));
+
+        write(
+            &format!("./purs/src/Schema/{}/Enum/{}.purs", role, name),
+            &format!(
+                "module {} ({}) where\n\n{}\n\n{}{}",
+                module_name, name, MODULE_IMPORTS, e, instances
+            ),
+        );
+    }
 }
 
 pub fn write(path: &str, contents: &str) -> () {

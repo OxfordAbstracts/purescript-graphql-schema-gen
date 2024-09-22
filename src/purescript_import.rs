@@ -8,25 +8,12 @@ pub struct PurescriptImport {
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd)]
 struct Specified {
     import: String,
-    constructor: Option<Constructor>,
 }
 
 impl Specified {
     fn to_string(&self) -> String {
-        match &self.constructor {
-            Some(Constructor::All) => format!("{}(..)", self.import),
-            Some(Constructor::Constructor(constructors)) => {
-                format!("{} ({})", self.import, constructors.join(", "))
-            }
-            None => self.import.clone(),
-        }
+        self.import.clone()
     }
-}
-
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd)]
-enum Constructor {
-    All,
-    Constructor(Vec<String>),
 }
 
 impl PurescriptImport {
@@ -65,7 +52,6 @@ impl PurescriptImport {
     pub fn add_specified(mut self, import: &str) -> Self {
         self.specified.push(Specified {
             import: import.to_string(),
-            constructor: None,
         });
         self
     }

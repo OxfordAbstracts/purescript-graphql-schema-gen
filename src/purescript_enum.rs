@@ -16,10 +16,6 @@ impl Enum {
         self
     }
 
-    pub fn add_value(&mut self, value: &str) {
-        self.values.push(value.to_string());
-    }
-
     pub fn to_string(&self) -> String {
         format!("data {}\n  = {}", self.name, self.values.join("\n  | "))
     }

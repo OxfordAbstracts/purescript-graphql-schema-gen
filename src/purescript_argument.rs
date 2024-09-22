@@ -1,7 +1,6 @@
 use crate::purescript_record::PurescriptRecord;
 
 pub enum Argument {
-    ForAll(String, Vec<Argument>),
     Type(String, Vec<Argument>),
     Function(Box<PurescriptFunctionType>),
     Record(PurescriptRecord),
@@ -67,9 +66,6 @@ impl Argument {
     pub fn new_type(name: &str) -> Self {
         Argument::Type(name.to_string(), vec![])
     }
-    pub fn new_for_all(name: &str) -> Self {
-        Argument::ForAll(name.to_string(), vec![])
-    }
     pub fn new_record(record: PurescriptRecord) -> Self {
         Argument::Record(record)
     }
@@ -82,19 +78,10 @@ impl Argument {
     pub fn add_argument(mut self, arg: Argument) -> Self {
         match &mut self {
             Argument::Type(_, args) => args.push(arg),
-            Argument::ForAll(_, args) => args.push(arg),
             Argument::Function(args) => args.arguments.push(arg),
             Argument::Record(_) => panic!("Can't add arguments to a record"),
         }
         self
-    }
-    pub fn name(&self) -> String {
-        match self {
-            Argument::ForAll(name, _) => name.clone(),
-            Argument::Type(name, _) => name.clone(),
-            Argument::Function(args) => panic!("Function arguments don't have names"), // TODO maybe this should be the first/last type name?
-            Argument::Record(record) => record.name.clone(), // This is an unused label? Maybe it should panic
-        }
     }
     /// Top level arguments won't be wrapped in parentheses
     pub fn to_string(&self) -> String {
@@ -103,10 +90,6 @@ impl Argument {
     /// Nested arguments will be wrapped in parentheses
     fn to_string_nestable(&self, top_level: bool) -> String {
         match self {
-            Argument::ForAll(name, args) if !top_level && args.len() > 0 => {
-                format_args_wrapped(name, args).trim().to_string()
-            }
-            Argument::ForAll(name, args) => format_args(name, args).trim().to_string(),
             Argument::Type(name, args) if !top_level && args.len() > 0 => {
                 format_args_wrapped(name, args).trim().to_string()
             }
@@ -122,13 +105,6 @@ impl Argument {
     /// to allow checks on type arguments
     pub fn get_all_forall_types(&self) -> Vec<String> {
         match self {
-            Argument::ForAll(name, args) => {
-                let mut types = vec![name.clone()];
-                for arg in args {
-                    types.extend(arg.get_all_forall_types());
-                }
-                types
-            }
             Argument::Type(_, args) => args
                 .iter()
                 .flat_map(|arg| arg.get_all_forall_types())

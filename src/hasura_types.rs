@@ -21,12 +21,12 @@ pub fn as_gql_field(
     if let Some(i) = import {
         imports.push(PurescriptImport::new(&i).add_specified(&type_));
         return Argument::new_type("AsGql")
-            .add_argument(Argument::new_type(&format!("\"{}\"", name)))
-            .add_argument(Argument::new_type(&type_));
+            .with_argument(Argument::new_type(&format!("\"{}\"", name)))
+            .with_argument(Argument::new_type(&type_));
     }
     Argument::new_type("AsGql")
-        .add_argument(Argument::new_type(&format!("\"{}\"", name)))
-        .add_argument(Argument::new_type(&pascal_case(&type_)))
+        .with_argument(Argument::new_type(&format!("\"{}\"", name)))
+        .with_argument(Argument::new_type(&pascal_case(&type_)))
 }
 
 fn outside_type(

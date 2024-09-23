@@ -74,7 +74,7 @@ impl Argument {
             return_type,
         }))
     }
-    pub fn add_argument(mut self, arg: Argument) -> Self {
+    pub fn with_argument(mut self, arg: Argument) -> Self {
         match &mut self {
             Argument::Type(_, args) => args.push(arg),
             Argument::Function(args) => args.arguments.push(arg),
@@ -82,6 +82,14 @@ impl Argument {
         }
         self
     }
+    pub fn add_argument(&mut self, arg: Argument) {
+        match self {
+            Argument::Type(_, args) => args.push(arg),
+            Argument::Function(args) => args.arguments.push(arg),
+            Argument::Record(_) => panic!("Can't add arguments to a record"),
+        };
+    }
+
     /// Top level arguments won't be wrapped in parentheses
     pub fn to_string(&self) -> String {
         self.to_string_nestable(true)

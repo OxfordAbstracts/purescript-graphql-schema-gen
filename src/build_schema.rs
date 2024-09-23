@@ -5,8 +5,11 @@ use std::{
 };
 
 use cynic::{http::ReqwestExt, QueryBuilder};
-use cynic_introspection::{FieldWrapping, IntrospectionQuery, Type, WrappingType};
+use cynic_introspection::{
+    Directive, DirectiveLocation, FieldWrapping, IntrospectionQuery, Type, WrappingType,
+};
 use stringcase::pascal_case;
+use tokio::{spawn, task::spawn_blocking};
 
 use crate::{
     config::parse_outside_types::OutsideTypes,
@@ -20,6 +23,7 @@ use crate::{
         purescript_record::{Field, PurescriptRecord},
         purescript_type::PurescriptType,
     },
+    write::write,
 };
 
 pub async fn build_schema(
@@ -48,17 +52,19 @@ pub async fn build_schema(
     let mut imports: Vec<PurescriptImport> = vec![];
     let mut instances: Vec<DeriveInstance> = vec![];
 
-    // Add the purescript GraphQL client imports that are always used
+    // Add the purescript GraphQL client imports that are always used,
     add_import("GraphQL.Client.Args", "NotNull", &mut imports);
     add_import("GraphQL.Client.AsGql", "AsGql", &mut imports);
+    add_import("Type.Proxy", "Proxy", &mut imports);
     add_import("Data.Newtype", "class Newtype", &mut imports);
 
-    // // TODO generate directives
-    // add_import(
-    //     format!("GeneratedGql.Directives.{}", role).as_str(),
-    //     "Directives",
-    //     &mut imports,
-    // );
+    // as well as the import for the role directives that we're about to create
+    add_import(&format!("{}.Directives", role), "Directives", &mut imports);
+
+    // Add the directives module
+    // In another thread to handle the sync file creation
+    let directive_role = role.clone();
+    spawn_blocking(move || build_directives(directive_role, schema.directives));
 
     // Adds the root schema record
     let mut schema_record = PurescriptRecord::new("Schema");
@@ -72,8 +78,10 @@ pub async fn build_schema(
     schema_record.add_field(Field::new("query").with_type(&query_type.name));
     types.push(query_type);
 
-    // // TODO use generated directives instead
-    // schema_record.add_field(Field::new("directives").with_type("Directives"));
+    // Add the directives field (imported above)
+    schema_record.add_field(Field::new("directives").with_type_arg(
+        Argument::new_type("Proxy").with_argument(Argument::new_type("Directives")),
+    ));
 
     // Optionally add mutation
     if let Some(mut_type) = &schema.mutation_type {
@@ -286,9 +294,9 @@ fn return_type_wrapper(
     }
     if nullable {
         add_import("Data.Maybe", "Maybe", &mut imports);
-        return_type = Argument::new_type("Maybe").add_argument(return_type);
+        return_type = Argument::new_type("Maybe").with_argument(return_type);
     } else if array {
-        return_type = Argument::new_type("Array").add_argument(return_type);
+        return_type = Argument::new_type("Array").with_argument(return_type);
     }
 
     return_type
@@ -305,12 +313,103 @@ fn wrap_type(
         match wrapper {
             WrappingType::NonNull => {
                 add_import("GraphQL.Client.Args", "NotNull", &mut imports);
-                argument = Argument::new_type("NotNull").add_argument(argument);
+                argument = Argument::new_type("NotNull").with_argument(argument);
             }
             WrappingType::List => {
-                argument = Argument::new_type("Array").add_argument(argument);
+                argument = Argument::new_type("Array").with_argument(argument);
             }
         }
     }
     argument
 }
+
+/// Format the schema directives into a separate module.
+/// TODO stop directives from being hardcoded string mods with bad imports just for our simple use...
+fn build_directives(role: String, directives: Vec<Directive>) -> () {
+    let mut directive_mod = "".to_string();
+    // Push the module header + types type + declaration to the directive module
+    directive_mod.push_str(&format!(
+        "module {}.Directives where \n{}",
+        role, DIRECTIVE_IMPORTS
+    ));
+
+    let mut directive_types = "".to_string();
+    let mut directive_functions = "".to_string();
+    for directive in directives {
+        let locations = &directive.locations;
+        let allowed_location = locations.iter().any(is_allowed_location);
+        if allowed_location {
+            let description = directive.description.clone().unwrap_or("\"\"".to_string());
+
+            // Give the Directives type a type
+            let type_type = "type Directives :: List' Type\n";
+            // Initialise the directive types argument with name and description (defaulted to "")
+            let mut directive_argument = Argument::new_type("Directive")
+                .with_argument(Argument::new_type(&format!(r#""{}""#, directive.name)))
+                .with_argument(Argument::new_type(&format!(r#""{}""#, description)));
+
+            // Build the arguments record
+            let mut directive_args_rec = PurescriptRecord::new("Arguments");
+            for arg in directive.args.iter() {
+                let arg_name = arg.name.clone();
+                let arg_type = arg.ty.name.clone();
+
+                directive_args_rec.add_field(Field::new(&arg_name).with_type(&arg_type));
+            }
+            directive_argument.add_argument(Argument::new_record(directive_args_rec));
+
+            // Add the locations to the directive type
+            // TODO Make this work for multiple locations. Ask Rory how this should work.
+            let locations_type = match locations[0] {
+                DirectiveLocation::Query => "QUERY",
+                DirectiveLocation::Mutation => "MUTATION",
+                DirectiveLocation::Subscription => "SUBSCRIPTION",
+                _ => "QUERY",
+            };
+            let locations_type_level_list =
+                Argument::new_type(&format!("({} :> Nil') :> Nil'", locations_type));
+            directive_argument.add_argument(locations_type_level_list);
+
+            // Define the directives type
+            let directive_type = PurescriptType::new("Directives", vec![], directive_argument);
+            directive_types.push_str(&type_type);
+            directive_types.push_str(&directive_type.to_string());
+        }
+
+        // Add the apply directive function
+        let function = format!(
+            r#"
+{} :: forall q args. args -> q -> ApplyDirective "{}" args q
+{} = applyDir (Proxy :: _ "{}")
+"#,
+            directive.name, directive.name, directive.name, directive.name
+        );
+        directive_functions.push_str(&function);
+    }
+
+    directive_mod.push_str([directive_types, directive_functions].join("\n").trim());
+
+    write(
+        &format!("./purs/src/Schema/{}/Directives/Directives.purs", role),
+        &directive_mod,
+    );
+}
+
+fn is_allowed_location(location: &DirectiveLocation) -> bool {
+    ALLOWED_DIRECTIVE_LOCATIONS.contains(location)
+}
+
+static ALLOWED_DIRECTIVE_LOCATIONS: [DirectiveLocation; 3] = [
+    DirectiveLocation::Query,
+    DirectiveLocation::Mutation,
+    DirectiveLocation::Subscription,
+];
+
+const DIRECTIVE_IMPORTS: &str = r#"
+import GraphQL.Client.Directive (ApplyDirective, applyDir)
+import GraphQL.Client.Directive.Definition (Directive)
+import GraphQL.Client.Directive.Location (QUERY)
+import Type.Data.List (type (:>), List', Nil')
+import Type.Proxy (Proxy(..))
+
+"#;

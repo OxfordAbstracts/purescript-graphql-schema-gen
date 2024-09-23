@@ -6,6 +6,13 @@ use crate::purescript_gen::purescript_import::PurescriptImport;
 use crate::write::write;
 
 pub async fn generate_enum(en: &EnumType, role: &str, imports: &mut Vec<PurescriptImport>) -> () {
+    // TODO this env could be faster if it was pulled in and parsed once at the start
+    // TODO check timings to see if it makes a difference
+    // Fetch the global enum suffixes
+    let global_enum_suffixes_env =
+        std::env::var("SHARED_ENUM_SUFFIXES").expect("SHARED_ENUM_SUFFIXES must be set");
+    let global_enum_suffixes: Vec<&str> = global_enum_suffixes_env.split(",").collect();
+
     // Empty enums in Hasura are represented as a single value with the name "_PLACEHOLDER"
     // purescript enums cannot start with an underscore, so we need to replace it with a different placeholder
     let values = if en.values.iter().next().unwrap().name == "_PLACEHOLDER" {
@@ -17,7 +24,10 @@ pub async fn generate_enum(en: &EnumType, role: &str, imports: &mut Vec<Purescri
     let name: String = pascal_case(&en.name);
 
     // Some enums are shared between all schemas
-    if name.ends_with("Enum") || name.ends_with("OrderBy") || name.ends_with("CursorOrdering") {
+    if global_enum_suffixes
+        .iter()
+        .any(|suffix| name.ends_with(suffix))
+    {
         let e = Enum::new(&name).with_values(&values).to_string();
 
         let instances = enum_instances(&name, &values, &original_values);

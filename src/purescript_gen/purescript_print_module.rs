@@ -1,6 +1,7 @@
 use super::{
     purescript_import::PurescriptImport, purescript_instance::DeriveInstance,
     purescript_record::PurescriptRecord, purescript_type::PurescriptType,
+    purescript_variant::Variant,
 };
 
 pub fn print_module(
@@ -8,9 +9,10 @@ pub fn print_module(
     types: &mut Vec<PurescriptType>,
     records: &mut Vec<PurescriptRecord>,
     imports: &mut Vec<PurescriptImport>,
+    variants: &mut Vec<Variant>,
     instances: &mut Vec<DeriveInstance>,
 ) -> String {
-    let module = format!("module {} where", &role);
+    let mut module = format!("module {} where", &role);
     types.sort_by_key(|t| t.name.clone());
     types.dedup_by_key(|t| t.name.clone());
 
@@ -32,6 +34,11 @@ pub fn print_module(
         .collect::<Vec<String>>()
         .join("\n")
         .to_string();
+    let variants: String = variants
+        .iter_mut()
+        .map(|v| v.to_string())
+        .collect::<Vec<String>>()
+        .join("\n\n");
     let instances = instances
         .iter_mut()
         .map(|i| i.to_string())
@@ -39,10 +46,19 @@ pub fn print_module(
         .join("\n")
         .to_string();
 
-    format!(
-        "{}\n\n{}\n\n{}\n\n{}\n\n{}",
-        module, imports, records, types, instances
-    )
-    .trim()
-    .to_string()
+    module.push_str("\n\n");
+    module.push_str(&imports);
+    module = module.trim().to_string();
+    module.push_str("\n\n");
+    module.push_str(&records);
+    module = module.trim().to_string();
+    module.push_str("\n\n");
+    module.push_str(&types);
+    module = module.trim().to_string();
+    module.push_str("\n\n");
+    module.push_str(&variants);
+    module = module.trim().to_string();
+    module.push_str("\n\n");
+    module.push_str(&instances);
+    module.trim().to_string()
 }

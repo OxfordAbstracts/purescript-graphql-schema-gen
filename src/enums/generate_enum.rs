@@ -3,9 +3,14 @@ use stringcase::pascal_case;
 
 use crate::purescript_gen::purescript_enum::Enum;
 use crate::purescript_gen::purescript_import::PurescriptImport;
+use crate::purescript_gen::purescript_variant::Variant;
 use crate::write::write;
 
-pub async fn generate_enum(en: &EnumType, role: &str, imports: &mut Vec<PurescriptImport>) -> () {
+pub async fn generate_enum(
+    en: &EnumType,
+    role: &str,
+    imports: &mut Vec<PurescriptImport>,
+) -> Option<Variant> {
     // TODO this env could be faster if it was pulled in and parsed once at the start
     // TODO check timings to see if it makes a difference
     // Fetch the global enum suffixes
@@ -42,22 +47,10 @@ pub async fn generate_enum(en: &EnumType, role: &str, imports: &mut Vec<Purescri
                 module_name, name, MODULE_IMPORTS, e, instances
             ),
         );
-    // Otherwise write schema-specific enums
+        None
+    // Otherwise write schema-specific variant enums
     } else {
-        let e = Enum::new(&name).with_values(&values).to_string();
-
-        let instances = enum_instances(&name, &values, &original_values);
-
-        let module_name = format!("GeneratedGql.Schema.{}.Enum.{}", role, name);
-        imports.push(PurescriptImport::new(&module_name).add_specified(&name));
-
-        write(
-            &format!("./purs/src/Schema/{}/Enum/{}.purs", role, name),
-            &format!(
-                "module {} ({}) where\n\n{}\n\n{}{}",
-                module_name, name, MODULE_IMPORTS, e, instances
-            ),
-        );
+        Some(Variant::new(&name).with_values(&original_values))
     }
 }
 

@@ -22,6 +22,7 @@ use crate::{
         purescript_print_module::print_module,
         purescript_record::{Field, PurescriptRecord},
         purescript_type::PurescriptType,
+        purescript_variant::Variant,
     },
     write::write,
 };
@@ -50,6 +51,7 @@ pub async fn build_schema(
     let mut records: Vec<PurescriptRecord> = vec![];
     let mut types: Vec<PurescriptType> = vec![];
     let mut imports: Vec<PurescriptImport> = vec![];
+    let mut variants: Vec<Variant> = vec![];
     let mut instances: Vec<DeriveInstance> = vec![];
 
     // Add the purescript GraphQL client imports that are always used,
@@ -198,7 +200,12 @@ pub async fn build_schema(
 
                 // Generate purescript enums for all graphql types
                 // These include table select columns as well as custom enums
-                generate_enum(&en, &role, &mut imports).await;
+                let enum_to_add = generate_enum(&en, &role, &mut imports).await;
+                if let Some(variant) = enum_to_add {
+                    add_import("Prelude", "Unit", &mut imports);
+                    add_import("Data.Variant", "Variant", &mut imports);
+                    variants.push(variant);
+                }
             }
             Type::InputObject(obj) => {
                 // Ignore internal Hasura input objects beginning with `__`
@@ -264,6 +271,7 @@ pub async fn build_schema(
         &mut types,
         &mut records,
         &mut imports,
+        &mut variants,
         &mut instances,
     ))
 }
@@ -309,7 +317,8 @@ fn wrap_type(
     wrapping: &FieldWrapping,
     mut imports: &mut Vec<PurescriptImport>,
 ) -> Argument {
-    for wrapper in wrapping.into_iter() {
+    let wrapping: Vec<WrappingType> = wrapping.into_iter().collect();
+    for wrapper in wrapping.iter().rev() {
         match wrapper {
             WrappingType::NonNull => {
                 add_import("GraphQL.Client.Args", "NotNull", &mut imports);

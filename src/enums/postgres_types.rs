@@ -5,7 +5,7 @@ use stringcase::pascal_case;
 
 use crate::{purescript_gen::purescript_enum::Enum, write::write};
 
-pub async fn fetch_types() -> Result<HashMap<String, (String, String)>> {
+pub async fn fetch_types() -> Result<HashMap<String, (String, String, String)>> {
     let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
     let pool = PgPoolOptions::new()
         .max_connections(1)
@@ -29,18 +29,43 @@ pub async fn fetch_types() -> Result<HashMap<String, (String, String)>> {
     for enum_row in res.iter() {
         let name = enum_row.enumtype.clone();
         let type_ = pascal_case(&name);
-        let import = format!("GeneratedPostgres.Enum.{}", &type_);
+        let import = format!("OaEnums.{type_}");
+        let package = "oa-enums".to_string();
 
         let contents = write_enum_module(&enum_row);
 
         write(
-            &format!("./purs/src/GeneratedPostgres/Enum/{}.purs", &type_),
+            &format!("./purs/lib/oa-enums/src/OaEnums/{type_}.purs"),
             &contents,
         );
-        hash_map.insert(name, (import, type_));
+        write(
+            &format!("./purs/lib/oa-enums/spago.yaml"),
+            &enums_spago_yaml(),
+        );
+        hash_map.insert(name, (package, import, type_));
     }
 
     Ok(hash_map)
+}
+
+fn enums_spago_yaml() -> String {
+    r#"package:
+  name: oa-enums
+  dependencies:
+    - argonaut
+    - argonaut-codecs
+    - arrays
+    - bifunctors
+    - either
+    - enums
+    - foreign
+    - foreign-generic
+    - graphql-client
+    - prelude
+    - simple-json
+    - transformers
+"#
+    .to_string()
 }
 
 #[derive(sqlx::Type)]
@@ -60,7 +85,7 @@ fn write_enum_module(enum_row: &EnumType) -> String {
         .map(|v| pascal_case(v).to_uppercase())
         .collect();
 
-    let mod_name = format!("module GeneratedPostgres.Enum.{} ({}) where", &name, &name);
+    let mod_name = format!("module OaEnums.{} ({}) where", &name, &name);
     let enum_definition = Enum::new(&name).with_values(&values).to_string();
     let instances_and_fns = enum_body(&name, &values, &original_values);
 

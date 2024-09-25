@@ -16,8 +16,8 @@ outside_types:
   DrOrderData:
     order_number: drId=DrOrderNumber
     coupon_id: drId=DrCouponId
-    currency: DrCurrenciesEnum, GeneratedGql.Enum.DrCurrenciesEnum
-    payment_type: DrOrderPaymentTypeEnum, GeneratedGql.Enum.DrOrderPaymentTypeEnum
+    currency: DrCurrenciesEnum, GeneratedGql.DrCurrenciesEnum, oa-gql-enums
+    payment_type: DrOrderPaymentTypeEnum, GeneratedGql.DrOrderPaymentTypeEnum, oa-gql-enums
   DrRegenTransactionReceiptInput:
     transaction_id: drId=DrTransactionId
   DrOfflineRefundSubmitInput:
@@ -43,7 +43,7 @@ outside_types:
     id: drId=DrInvoiceQuestionId
   InvoiceQuestion:
     id: drId=DrInvoiceQuestionId
-  DrRefundPlanResponse: StripeRefundError, GqlOverrides.StripeRefundError
+  DrRefundPlanResponse: StripeRefundError, GqlOverrides.StripeRefundError, oa-ids
   DrRegisterAddonsInput:
     order_id: drId=DrOrderId
     coupon: drId=DrCouponId
@@ -67,16 +67,16 @@ outside_types:
     id: drId=DrAttendeeId
   DrOrderTransaction:
     id: drId=DrTransactionId
-    transaction_type: DrTransactionTypesEnum, GeneratedGql.Enum.DrTransactionTypesEnum
+    transaction_type: DrTransactionTypesEnum, GeneratedGql.DrTransactionTypesEnum, oa-gql-enums
   DrOrderTicket:
-    status: DrLineItemStatusesEnum, GeneratedGql.Enum.DrLineItemStatusesEnum
+    status: DrLineItemStatusesEnum, GeneratedGql.DrLineItemStatusesEnum, oa-gql-enums
     id: drId=DrAttendeeTicketId
     ticket_id: drId=DrTicketId
     coupon_id: drId=DrCouponId
     transaction_id: drId=DrTransactionId
     refund_transaction_id: drId=DrTransactionId
     coupon_discount_percentage: drId=DrCouponDiscountAmount
-    coupon_discount_type: DrCouponDiscountTypeEnum, GeneratedGql.Enum.DrCouponDiscountTypeEnum
+    coupon_discount_type: DrCouponDiscountTypeEnum, GeneratedGql.DrCouponDiscountTypeEnum, oa-gql-enums
   DrOrderGroup:
     id: drId=DrTicketGroupId
   DrOrderAddonData:
@@ -85,20 +85,20 @@ outside_types:
   DrOrderTaxRuleAtPurchase:
     tax_rule_id: drId=DrTaxRuleId
   DrOrderClient:
-    vat_code: VatCode, GeneratedPostgres.Enum.VatCode
+    vat_code: VatCode, OaEnum.VatCode, oa-enums
   DrOrderTicketData:
     id: drId=DrTicketId
     ticket_group_id: drId=DrTicketGroupId
-    description_html: RawHtml, GqlOverrides.RawHTML # changed type name to avoid clashing imports - will need to alias
+    description_html: RawHtml, GqlOverrides.RawHTML, oa-ids # changed type name to avoid clashing imports - will need to alias
   DrOrderAddon:
-    status: DrLineItemStatusesEnum, GeneratedGql.Enum.DrLineItemStatusesEnum
+    status: DrLineItemStatusesEnum, GeneratedGql.DrLineItemStatusesEnum, oa-gql-enums
     ticket_id: drId=DrTicketId
     coupon_id: drId=DrCouponId
     transaction_id: drId=DrTransactionId
     refund_transaction_id: drId=DrTransactionId
     addon_id: drId=DrAddonId
     coupon_discount_percentage: drId=DrCouponDiscountAmount
-    coupon_discount_type: DrCouponDiscountTypeEnum, GeneratedGql.Enum.DrCouponDiscountTypeEnum
+    coupon_discount_type: DrCouponDiscountTypeEnum, GeneratedGql.DrCouponDiscountTypeEnum, oa-gql-enums
   DrOrderQuestionResponse:
     id: drId=DrQuestionResponseId
     question_id: drId=DrQuestionId
@@ -131,7 +131,7 @@ outside_types:
   DrAdminTicket:
     with: delreg_common
     id: drId=DrTicketId
-    description_html: RawHtml, GqlOverrides.RawHTML # changed type name to avoid clashing imports - will need to alias
+    description_html: RawHtml, GqlOverrides.RawHTML, oa-ids # changed type name to avoid clashing imports - will need to alias
   DrAuthorizePaymentLinkInput:
     with: delreg_common
   DrAuthorizePaymentLinkOpenAccessInput:
@@ -145,7 +145,7 @@ outside_types:
     ticket_id: drId=DrTicketId
     addon_id: drId=DrAddonId
   DrPayPalCaptureOutput:
-    error: DrPayPalCaptureError, GqlOverrides.PayPalCaptureError
+    error: DrPayPalCaptureError, GqlOverrides.PayPalCaptureError, oa-ids
   DrStripePaymentLinkInput:
     with: delreg_common
   DrStripePaymentLinkOpenAccessInput:
@@ -162,7 +162,7 @@ outside_types:
   DrCouponCheck:
     id: drId=DrCouponId
     discount_amount: drId=DrCouponDiscountAmount
-    discount_type: DrCouponDiscountTypeEnum, GeneratedGql.Enum.DrCouponDiscountTypeEnum
+    discount_type: DrCouponDiscountTypeEnum, GeneratedGql.DrCouponDiscountTypeEnum, oa-gql-enums
   DrCoupon:
     id: drId=DrCouponId
   DrPaypalCaptureOrderInput:
@@ -176,7 +176,7 @@ outside_types:
   SentEmailInformationInput:
     id: id=SentEmailId
   PostmarkMessageEvent:
-    Type: PostmarkEventType, GqlOverrides.PostmarkEventType
+    Type: override=PostmarkEventType
   ReviewWithCompleteStatus:
     with: delreg_common
     id: id=ReviewId
@@ -189,15 +189,15 @@ outside_types:
     certificate_id: id=CertificateId
   TrialStatusAndEvent:
     event_id: id=EventId
-    trial_status: TrialStatus, GqlOverrides.TrialStatus
+    trial_status: override=TrialStatus
   AddAddonOutput:
     event_id: id=EventId
   EventsUpgradePackageInput:
-    new_package: PricePackage, GeneratedPostgres.Enum.PricePackage
+    new_package: PricePackage, OaEnum.PricePackage, oa-enums
   UpgradePackageOutput:
     event_id: id=EventId
   OnboardingCreateEvent:
-    frequency: FrequencyType, GeneratedPostgres.Enum.FrequencyType
+    frequency: FrequencyType, OaEnum.FrequencyType, oa-enums
     user_id: id=UserId
   OnboardingCreateClient:
     region: override=ClientRegionActionInput
@@ -206,12 +206,12 @@ outside_types:
     client_id: id=ClientId
     stage_id: id=StageId
 types:
-  id: $, Data.Id.$
-  ids: $s, Data.Id.$
-  drId: $, Data.Id.DelegateRegistration.$
-  drIds: $s, Data.Id.DelegateRegistration.$
-  override: $, GqlOverrides.$
-  dataType: $, OaVirtual.Data.$
+  id: $, Data.Id.$, oa-ids
+  ids: $s, Data.Id.$, oa-ids
+  drId: $, Data.Id.DelegateRegistration.$, oa-ids
+  drIds: $s, Data.Id.DelegateRegistration.$, oa-ids
+  override: $, GqlOverrides.$, oa-ids
+  dataType: $, OaVirtual.Data.$, oa-ids
 templates:
   delreg_common:
     event_id: id=EventId

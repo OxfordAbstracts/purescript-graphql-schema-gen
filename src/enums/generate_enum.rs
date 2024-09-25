@@ -6,11 +6,7 @@ use crate::purescript_gen::purescript_import::PurescriptImport;
 use crate::purescript_gen::purescript_variant::Variant;
 use crate::write::write;
 
-pub async fn generate_enum(
-    en: &EnumType,
-    role: &str,
-    imports: &mut Vec<PurescriptImport>,
-) -> Option<Variant> {
+pub async fn generate_enum(en: &EnumType, imports: &mut Vec<PurescriptImport>) -> Option<Variant> {
     // TODO this env could be faster if it was pulled in and parsed once at the start
     // TODO check timings to see if it makes a difference
     // Fetch the global enum suffixes
@@ -37,15 +33,16 @@ pub async fn generate_enum(
 
         let instances = enum_instances(&name, &values, &original_values);
 
-        let module_name = format!("GeneratedGql.Enum.{}", name);
-        imports.push(PurescriptImport::new(&module_name).add_specified(&name));
+        let module_name = format!("GeneratedGql.{}", name);
+        imports.push(PurescriptImport::new(&module_name, "oa-gql-enums").add_specified(&name));
 
         write(
-            &format!("./purs/src/GeneratedGql/Enum/{}.purs", name),
-            &format!(
-                "module {} ({}) where\n\n{}\n\n{}{}",
-                module_name, name, MODULE_IMPORTS, e, instances
-            ),
+            &format!("./purs/lib/oa-gql-enums/src/GeneratedGql/{name}.purs"),
+            &format!("module {module_name} ({name}) where\n\n{MODULE_IMPORTS}\n\n{e}{instances}"),
+        );
+        write(
+            &format!("./purs/lib/oa-gql-enums/spago.yaml"),
+            &enums_spago_yaml(),
         );
         None
     // Otherwise write schema-specific variant enums
@@ -170,6 +167,26 @@ fn enum_instances(name: &str, values: &Vec<String>, original_values: &Vec<String
     ));
 
     instances
+}
+
+fn enums_spago_yaml() -> String {
+    r#"package:
+  name: oa-gql-enums
+  dependencies:
+    - argonaut
+    - argonaut-codecs
+    - arrays
+    - bifunctors
+    - either
+    - enums
+    - foreign
+    - foreign-generic
+    - graphql-client
+    - prelude
+    - simple-json
+    - transformers
+"#
+    .to_string()
 }
 
 const MODULE_IMPORTS: &str = r#"import Prelude

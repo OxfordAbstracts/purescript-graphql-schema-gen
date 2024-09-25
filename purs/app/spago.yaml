@@ -1,5 +1,5 @@
 package:
-  name: purs
+  name: app
   dependencies:
     - aff
     - argonaut
@@ -21,6 +21,9 @@ package:
     - transformers
     - typelevel-lists
     - variant
+    - oa-gql-schema-all-users
+    - oa-enums
+    - oa-gql-enums
   test:
     main: Test.Main
     dependencies:

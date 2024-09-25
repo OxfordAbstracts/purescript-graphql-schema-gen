@@ -1,0 +1,9 @@
+postgres_enums_lib: oa-enums
+shared_graphql_enums_lib: oa-gql-enums
+schema_libs_prefix: oa-gql-schema-
+schema_libs_relative_dir: ./purs/lib/generated/
+enums_relative_dir: ./purs/lib/generated/
+gql_enums_relative_dir: ./purs/lib/generated/
+schema_deps:
+  - oa-ids
+  - oa-gql-enums

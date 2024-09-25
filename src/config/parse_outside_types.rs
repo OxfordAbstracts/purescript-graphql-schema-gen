@@ -73,8 +73,19 @@ fn to_types(yaml: Option<&Yaml>) -> impl Fn(&str, &str) -> Option<Mod> {
     move |name: &str, type_name: &str| -> Option<Mod> {
         match types.get(name) {
             Some(import) => Some(Mod {
-                import: import.split(", ").last().unwrap().replace("$", type_name),
+                import: import
+                    .split(", ")
+                    .collect::<Vec<&str>>()
+                    .get(1)
+                    .unwrap()
+                    .replace("$", type_name),
                 name: type_name.to_string(),
+                package: import
+                    .split(", ")
+                    .collect::<Vec<&str>>()
+                    .get(2)
+                    .unwrap()
+                    .to_string(),
             }),
             None => None,
         }
@@ -161,9 +172,11 @@ fn to_type_value(type_value: &String, types_fn: &impl Fn(&str, &str) -> Option<M
         let mut values = type_value.split(", ");
         let name = values.next().unwrap();
         let import = values.next().unwrap();
+        let package: &str = values.next().unwrap();
         Mod {
             import: import.to_string(),
             name: name.to_string(),
+            package: package.to_string(),
         }
     } else {
         panic!("Only the 'with' key can contain string template types");
@@ -174,6 +187,7 @@ fn to_type_value(type_value: &String, types_fn: &impl Fn(&str, &str) -> Option<M
 pub struct Mod {
     pub import: String,
     pub name: String,
+    pub package: String,
 }
 
 fn write_types(outside_types: &OutsideTypes) {
@@ -184,15 +198,25 @@ fn write_types(outside_types: &OutsideTypes) {
         }
     }
     for module in to_write.iter() {
-        if module.import.contains("GeneratedPostgres") || module.import.contains("GeneratedGql") {
+        if module.import.contains("OaEnums") || module.import.contains("GeneratedGql") {
             // Don't bother generating mock for generated enum types
             continue;
         }
         write(
-            format!("./purs/src/MockedIds/{}.purs", &module.import).as_str(),
+            format!("./purs/lib/oa-ids/src/{}.purs", &module.import).as_str(),
             &mocked_id_module(&module),
         );
+        write("./purs/lib/oa-ids/spago.yaml", &ids_spago_yaml());
     }
+}
+
+fn ids_spago_yaml() -> String {
+    r#"package:
+  name: oa-ids
+  dependencies:
+    - prelude
+"#
+    .to_string()
 }
 
 fn mocked_id_module(module: &Mod) -> String {

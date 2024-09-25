@@ -45,7 +45,7 @@ outside_types:
     recipient_id: id=CertificateRecipientId
   certificates_invoices:
     with: common
-    line_items: LineItems, GqlOverrides.CertificatesInvoiceLineItems
+    line_items: LineItems, GqlOverrides.CertificatesInvoiceLineItems, oa-ids
   clients:
     with: common
   clients_permissions:
@@ -109,14 +109,14 @@ outside_types:
   virtual_conference_homepage:
     with: common
   virtual_conference_homepage_tabs:
-    content: Document, OaComponents.DocumentEditor.Data.Document
+    content: Document, OaComponents.DocumentEditor.Data.Document, oa-ids
   dr_event_details:
     with: delreg_common
     stripe_account_id: drId=DrStripeAccountId
   dr_event_landing:
     with: delreg_common
-    content: Document, OaComponents.DocumentEditor.Data.Document
-    location: Location, DelegateRegistration.Landing.Location
+    content: Document, OaComponents.DocumentEditor.Data.Document, oa-ids
+    location: Location, DelegateRegistration.Landing.Location, oa-ids
   dr_marketing_campaigns:
     with: delreg_common
     id: drId=DrMarketingCampaignId
@@ -128,10 +128,10 @@ outside_types:
     id: drId=DrOrderId
     order_number: drId=DrOrderNumber
   dr_email:
-    message_deltas: Deltas, OaQuill.Data.QuillDeltas
+    message_deltas: Deltas, OaQuill.Data.QuillDeltas, oa-ids
     event_id: id=EventId
   dr_emails_events:
-    message_deltas: Deltas, OaQuill.Data.QuillDeltas
+    message_deltas: Deltas, OaQuill.Data.QuillDeltas, oa-ids
     event_id: id=EventId
   dr_email_buttons_events:
     event_id: id=EventId
@@ -142,8 +142,8 @@ outside_types:
     with: delreg_common
     id: drId=DrQuestionId
     depends_on: drId=DrQuestionId
-    rich_text: Deltas, OaQuill.Data.QuillDeltas
-    description: RawHtml, GqlOverrides.RawHTML # renamed type to avoid clash
+    rich_text: Deltas, OaQuill.Data.QuillDeltas, oa-ids
+    description: RawHtml, GqlOverrides.RawHTML, oa-ids # renamed type to avoid clash
   dr_invoice_questions:
     with: delreg_common
     id: drId=DrInvoiceQuestionId
@@ -151,13 +151,13 @@ outside_types:
     with: delreg_common
   dr_invoice_setup:
     with: delreg_common
-    footer_deltas: Deltas, OaQuill.Data.QuillDeltas
-    header_deltas: Deltas, OaQuill.Data.QuillDeltas
-    offline_payment_details_deltas: Deltas, OaQuill.Data.QuillDeltas
+    footer_deltas: Deltas, OaQuill.Data.QuillDeltas, oa-ids
+    header_deltas: Deltas, OaQuill.Data.QuillDeltas, oa-ids
+    offline_payment_details_deltas: Deltas, OaQuill.Data.QuillDeltas, oa-ids
   dr_offline_payments_setup:
     with: delreg_common
-    footer_deltas: Deltas, OaQuill.Data.QuillDeltas
-    header_deltas: Deltas, OaQuill.Data.QuillDeltas
+    footer_deltas: Deltas, OaQuill.Data.QuillDeltas, oa-ids
+    header_deltas: Deltas, OaQuill.Data.QuillDeltas, oa-ids
   dr_question_dependencies:
     target_question_id: drId=DrQuestionId
     question_id: drId=DrQuestionId
@@ -198,7 +198,7 @@ outside_types:
   dr_tickets:
     with: delreg_common
     id: drId=DrTicketId
-    description_html: RawHtml, GqlOverrides.RawHTML # renamed type to avoid clash - aliasing would work too
+    description_html: RawHtml, GqlOverrides.RawHTML, oa-ids # renamed type to avoid clash - aliasing would work too
   dr_service_fee_charges:
     with: common
   # dr_payment_type_fees_aggregate: # why are these types odd?
@@ -216,7 +216,7 @@ outside_types:
     with: common
     id: id=EventId
     timezone: dataType=EventTimezone
-    secure_program_allowed_delegate_status: DelegateStatuses, GqlOverrides.DelegateStatus
+    secure_program_allowed_delegate_status: DelegateStatuses, GqlOverrides.DelegateStatus, oa-ids
   events_permissions:
     with: common
   event_payments:
@@ -397,7 +397,7 @@ outside_types:
   table_email_templates:
     stage_id: id=StageId
     created_by: id=UserId
-    body: Deltas, OaQuill.Data.QuillDeltas
+    body: Deltas, OaQuill.Data.QuillDeltas, oa-ids
   track_review_auto_assigns:
     with: common
   users:
@@ -511,12 +511,12 @@ outside_types:
   event_log:
     event_id: id=EventId
     created_by: id=UserId
-    event: EventLogEvent, GqlOverrides.EventLogEvent
+    event: override=EventLogEvent
 types:
-  id: $, Data.Id.$
-  drId: $, Data.Id.DelegateRegistration.$
-  override: $, GqlOverrides.$
-  dataType: $, OaVirtual.Data.$
+  id: $, Data.Id.$, oa-ids
+  drId: $, Data.Id.DelegateRegistration.$, oa-ids
+  override: $, GqlOverrides.$, oa-ids
+  dataType: $, OaVirtual.Data.$, oa-ids
 templates:
   common:
     author_id: id=AuthorId

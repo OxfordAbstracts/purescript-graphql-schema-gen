@@ -10,7 +10,4 @@ generated-docs/
 .purs*
 .psa*
 .spago
-src/Schema
-src/GeneratedPostgres
-src/GeneratedGql
-src/MockedIds
+/lib

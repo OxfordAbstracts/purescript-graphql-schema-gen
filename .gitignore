@@ -2,3 +2,5 @@
 .env
 .spago
 output
+outside_types_in_actions.yaml
+outside_types.yaml

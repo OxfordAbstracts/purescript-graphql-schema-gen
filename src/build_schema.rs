@@ -8,8 +8,8 @@ use cynic::{http::ReqwestExt, QueryBuilder};
 use cynic_introspection::{
     Directive, DirectiveLocation, FieldWrapping, IntrospectionQuery, Type, WrappingType,
 };
-use stringcase::pascal_case;
-use tokio::{spawn, task::spawn_blocking};
+use stringcase::{kebab_case, pascal_case};
+use tokio::task::spawn_blocking;
 
 use crate::{
     config::parse_outside_types::OutsideTypes,
@@ -29,9 +29,9 @@ use crate::{
 
 pub async fn build_schema(
     role: String,
-    postgres_types: Arc<Mutex<HashMap<String, (String, String)>>>,
+    postgres_types: Arc<Mutex<HashMap<String, (String, String, String)>>>,
     outside_types: Arc<Mutex<OutsideTypes>>,
-) -> Result<String> {
+) -> Result<()> {
     // Fetch the introspection schema
     let graphql_url = std::env::var("GRAPHQL_URL").expect("GRAPHQL_URL must be set");
     let graphql_secret = std::env::var("GRAPHQL_SECRET").expect("GRAPHQL_SECRET must be set");
@@ -55,18 +55,32 @@ pub async fn build_schema(
     let mut instances: Vec<DeriveInstance> = vec![];
 
     // Add the purescript GraphQL client imports that are always used,
-    add_import("GraphQL.Client.Args", "NotNull", &mut imports);
-    add_import("GraphQL.Client.AsGql", "AsGql", &mut imports);
-    add_import("Type.Proxy", "Proxy", &mut imports);
-    add_import("Data.Newtype", "class Newtype", &mut imports);
+    add_import(
+        "graphql-client",
+        "GraphQL.Client.Args",
+        "NotNull",
+        &mut imports,
+    );
+    add_import(
+        "graphql-client",
+        "GraphQL.Client.AsGql",
+        "AsGql",
+        &mut imports,
+    );
+    add_import("prelude", "Type.Proxy", "Proxy", &mut imports);
+    add_import("newtype", "Data.Newtype", "class Newtype", &mut imports);
 
     // as well as the import for the role directives that we're about to create
-    add_import(&format!("{}.Directives", role), "Directives", &mut imports);
+    add_import(
+        "prelude", // It's not from here but we always import this so can use as a default
+        &format!("{}.Directives", role),
+        "Directives",
+        &mut imports,
+    );
 
     // Add the directives module
     // In another thread to handle the sync file creation
     let directive_role = role.clone();
-    spawn_blocking(move || build_directives(directive_role, schema.directives));
 
     // Adds the root schema record
     let mut schema_record = PurescriptRecord::new("Schema");
@@ -183,12 +197,14 @@ pub async fn build_schema(
                 // TODO maybe move these to config so they can be updated outside of rust
                 match scalar.name.as_str() {
                     _ if scalar.is_builtin() => {} // ignore built in types like String, Int, etc.
-                    "date" => add_import("Data.Date", "Date", &mut imports),
+                    "date" => add_import("datetime", "Data.Date", "Date", &mut imports),
                     "timestamp" | "timestamptz" => {
-                        add_import("Data.DateTime", "DateTime", &mut imports);
+                        add_import("datetime", "Data.DateTime", "DateTime", &mut imports);
                     }
-                    "json" | "jsonb" => add_import("Data.Argonaut.Core", "Json", &mut imports),
-                    "time" => add_import("Data.Time", "Time", &mut imports),
+                    "json" | "jsonb" => {
+                        add_import("argonaut-core", "Data.Argonaut.Core", "Json", &mut imports)
+                    }
+                    "time" => add_import("datetime", "Data.Time", "Time", &mut imports),
                     _ => {}
                 }
             }
@@ -200,10 +216,10 @@ pub async fn build_schema(
 
                 // Generate purescript enums for all graphql types
                 // These include table select columns as well as custom enums
-                let enum_to_add = generate_enum(&en, &role, &mut imports).await;
+                let enum_to_add = generate_enum(&en, &mut imports).await;
                 if let Some(variant) = enum_to_add {
-                    add_import("Prelude", "Unit", &mut imports);
-                    add_import("Data.Variant", "Variant", &mut imports);
+                    add_import("prelude", "Prelude", "Unit", &mut imports);
+                    add_import("variant", "Data.Variant", "Variant", &mut imports);
                     variants.push(variant);
                 }
             }
@@ -260,25 +276,66 @@ pub async fn build_schema(
     // then we should add them with a Void type to satisfy the compiler.
     for schema_field in ["query", "mutation", "subscription", "directives"] {
         if !schema_record.has_field(schema_field) {
-            add_import("Data.Void", "Void", &mut imports);
+            add_import("prelude", "Data.Void", "Void", &mut imports);
             schema_record.add_field(Field::new(schema_field).with_type("Void"));
         }
     }
     records.push(schema_record);
 
-    Ok(print_module(
-        &role,
-        &mut types,
-        &mut records,
-        &mut imports,
-        &mut variants,
-        &mut instances,
-    ))
+    let lib_path = format!("./purs/lib/oa-gql-schema-{}", kebab_case(&role));
+
+    write(
+        &format!("{}/src/{}.purs", &lib_path, role),
+        &print_module(
+            &role,
+            &mut types,
+            &mut records,
+            &mut imports,
+            &mut variants,
+            &mut instances,
+        ),
+    );
+
+    let path_clone = lib_path.clone();
+    spawn_blocking(move || build_directives(path_clone, directive_role, schema.directives));
+
+    write(
+        &format!("{}/spago.yaml", &lib_path),
+        &to_spago_yaml(&role, &imports),
+    );
+
+    write(&format!("{}/.gitignore", &lib_path), GIT_IGNORE);
+
+    Ok(())
+}
+
+fn to_spago_yaml(role: &str, imports: &Vec<PurescriptImport>) -> String {
+    let mut spago_yaml = "".to_string();
+    let kebab_role = kebab_case(role);
+    spago_yaml.push_str(&format!(
+        r#"package:
+  name: oa-gql-schema-{kebab_role}
+  dependencies:"#,
+    ));
+    let mut all_packages: Vec<String> = imports.iter().map(|i| i.package.clone()).collect();
+    all_packages.push("typelevel-lists".to_string()); // This is required for directives
+    all_packages.sort();
+    all_packages.dedup();
+
+    for name in all_packages.iter() {
+        spago_yaml.push_str(&format!("\n    - {name}"));
+    }
+    spago_yaml
 }
 
 /// Simplified import add via plain strings
-fn add_import(import: &str, specified: &str, imports: &mut Vec<PurescriptImport>) -> () {
-    imports.push(PurescriptImport::new(import).add_specified(specified));
+fn add_import(
+    package: &str,
+    import: &str,
+    specified: &str,
+    imports: &mut Vec<PurescriptImport>,
+) -> () {
+    imports.push(PurescriptImport::new(import, package).add_specified(specified));
 }
 
 /// Optionally wraps the return type in Maybe/Array types,
@@ -301,7 +358,7 @@ fn return_type_wrapper(
         }
     }
     if nullable {
-        add_import("Data.Maybe", "Maybe", &mut imports);
+        add_import("maybe", "Data.Maybe", "Maybe", &mut imports);
         return_type = Argument::new_type("Maybe").with_argument(return_type);
     } else if array {
         return_type = Argument::new_type("Array").with_argument(return_type);
@@ -321,7 +378,12 @@ fn wrap_type(
     for wrapper in wrapping.iter().rev() {
         match wrapper {
             WrappingType::NonNull => {
-                add_import("GraphQL.Client.Args", "NotNull", &mut imports);
+                add_import(
+                    "graphql-client",
+                    "GraphQL.Client.Args",
+                    "NotNull",
+                    &mut imports,
+                );
                 argument = Argument::new_type("NotNull").with_argument(argument);
             }
             WrappingType::List => {
@@ -334,7 +396,7 @@ fn wrap_type(
 
 /// Format the schema directives into a separate module.
 /// TODO stop directives from being hardcoded string mods with bad imports just for our simple use...
-fn build_directives(role: String, directives: Vec<Directive>) -> () {
+fn build_directives(lib_path: String, role: String, directives: Vec<Directive>) -> () {
     let mut directive_mod = "".to_string();
     // Push the module header + types type + declaration to the directive module
     directive_mod.push_str(&format!(
@@ -399,7 +461,7 @@ fn build_directives(role: String, directives: Vec<Directive>) -> () {
     directive_mod.push_str([directive_types, directive_functions].join("\n").trim());
 
     write(
-        &format!("./purs/src/Schema/{}/Directives/Directives.purs", role),
+        &format!("{}/src/{}/Directives.purs", lib_path, role),
         &directive_mod,
     );
 }
@@ -421,4 +483,18 @@ import GraphQL.Client.Directive.Location (QUERY)
 import Type.Data.List (type (:>), List', Nil')
 import Type.Proxy (Proxy(..))
 
+"#;
+
+const GIT_IGNORE: &str = r#"
+bower_components/
+node_modules/
+.pulp-cache/
+output/
+output-es/
+generated-docs/
+.psc-package/
+.psc*
+.purs*
+.psa*
+.spago
 "#;

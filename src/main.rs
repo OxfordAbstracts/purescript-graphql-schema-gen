@@ -11,7 +11,6 @@ use config::{
 use dotenv::dotenv;
 use enums::postgres_types::fetch_types;
 use tokio::spawn;
-use write::write;
 mod build_schema;
 mod config;
 mod enums;
@@ -63,13 +62,6 @@ async fn main() -> Result<()> {
     let mut outputs = Vec::with_capacity(tasks.len());
     for task in tasks {
         outputs.push(task.await.unwrap().unwrap());
-    }
-    // Write the output of each schema to a file
-    for (output, role) in outputs.into_iter().zip(roles.into_iter()) {
-        write(
-            &format!("./purs/src/Schema/{}/{}.purs", role, role),
-            &output,
-        );
     }
 
     println!(

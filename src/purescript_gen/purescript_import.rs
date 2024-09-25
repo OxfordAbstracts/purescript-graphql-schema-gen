@@ -3,6 +3,7 @@ pub struct PurescriptImport {
     pub module: String,
     specified: Vec<Specified>,
     pub as_name: Option<String>,
+    pub package: String,
 }
 
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd)]
@@ -17,11 +18,12 @@ impl Specified {
 }
 
 impl PurescriptImport {
-    pub fn new(module: &str) -> Self {
+    pub fn new(module: &str, package: &str) -> Self {
         PurescriptImport {
             module: module.to_string(),
             specified: vec![],
             as_name: None,
+            package: package.to_string(),
         }
     }
 

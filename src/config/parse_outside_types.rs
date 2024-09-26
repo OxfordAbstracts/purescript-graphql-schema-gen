@@ -4,6 +4,7 @@ use std::{
     io::Read,
 };
 
+use stringcase::pascal_case;
 use yaml_rust2::{yaml, Yaml};
 
 use crate::write::write;
@@ -202,8 +203,12 @@ fn write_types(outside_types: &OutsideTypes, workspace_config: &WorkspaceConfig)
     let mock_outside_types = std::env::var("MOCK_OUTSIDE_TYPES");
     if mock_outside_types.is_ok() {
         let lib_path = workspace_config.shared_graphql_enums_dir.clone();
+        let postgres_enums_lib = pascal_case(&workspace_config.postgres_enums_lib);
+        let gql_enums_lib = pascal_case(&workspace_config.shared_graphql_enums_lib);
         for module in to_write.iter() {
-            if module.import.contains("OaEnums") || module.import.contains("GeneratedGql") {
+            let is_enum_mod = module.import.contains(&postgres_enums_lib)
+                || module.import.contains(&gql_enums_lib);
+            if is_enum_mod {
                 // Don't bother generating mock for generated enum types
                 continue;
             }

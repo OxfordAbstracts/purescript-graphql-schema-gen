@@ -37,8 +37,8 @@ pub async fn generate_enum(
         let e = Enum::new(&name).with_values(&values).to_string();
 
         let instances = enum_instances(&name, &values, &original_values);
-
-        let module_name = format!("GeneratedGql.{}", name);
+        let package_name = pascal_case(&workspace_config.shared_graphql_enums_lib);
+        let module_name = format!("{package_name}.{name}");
         imports.push(PurescriptImport::new(&module_name, "oa-gql-enums").add_specified(&name));
 
         let lib_path = format!(
@@ -46,7 +46,7 @@ pub async fn generate_enum(
             &workspace_config.shared_graphql_enums_dir, &workspace_config.shared_graphql_enums_lib
         );
         write(
-            &format!("{lib_path}/src/GeneratedGql/{name}.purs"),
+            &format!("{lib_path}/src/{package_name}/{name}.purs"),
             &format!("module {module_name} ({name}) where\n\n{MODULE_IMPORTS}\n\n{e}{instances}"),
         );
         write(&format!("{lib_path}/spago.yaml"), &enums_spago_yaml());
@@ -72,44 +72,35 @@ fn enum_instances(name: &str, values: &Vec<String>, original_values: &Vec<String
     //     name, values[0]
     // ));
     instances.push_str(&format!(
-        "\n\ninstance FC.Decode {} where\n  decode = unsafeFromForeign >>> decodeJson >>> lmap (D.printJsonDecodeError >>> F.ForeignError >>> pure) >>> except",
-        name
+        "\n\ninstance FC.Decode {name} where\n  decode = unsafeFromForeign >>> decodeJson >>> lmap (D.printJsonDecodeError >>> F.ForeignError >>> pure) >>> except",
     ));
     instances.push_str(&format!(
-        "\n\ninstance FC.Encode {} where\n  encode = encodeJson >>> unsafeToForeign",
-        name
+        "\n\ninstance FC.Encode {name} where\n  encode = encodeJson >>> unsafeToForeign"
     ));
     instances.push_str(&format!(
-        "\n\ninstance Eq {} where\n  eq = eq `on` show",
-        name
+        "\n\ninstance Eq {name} where\n  eq = eq `on` show"
     ));
     instances.push_str(&format!(
-        "\n\ninstance Ord {} where\n  compare = compare `on` show",
-        name
+        "\n\ninstance Ord {name} where\n  compare = compare `on` show"
     ));
     instances.push_str(&format!(
-        "\n\ninstance GqlArgString {} where\n  toGqlArgStringImpl = show",
-        name
+        "\n\ninstance GqlArgString {name} where\n  toGqlArgStringImpl = show"
     ));
     instances.push_str(&format!(
-        "\n\ninstance DecodeJson {} where\n  decodeJson = decodeJson >=> case _ of\n    {}\n    s -> Left $ TypeMismatch $ \"Not a {}: \" <> s",
-        name, values.iter().map(|v| format!("\"{}\" -> pure {}", v, v)).collect::<Vec<String>>().join("\n    "), name
+        "\n\ninstance DecodeJson {name} where\n  decodeJson = decodeJson >=> case _ of\n    {}\n    s -> Left $ TypeMismatch $ \"Not a {name}: \" <> s",
+        values.iter().map(|v| format!("\"{}\" -> pure {}", v, v)).collect::<Vec<String>>().join("\n    ")
     ));
     instances.push_str(&format!(
-        "\n\ninstance EncodeJson {} where\n  encodeJson = show >>> encodeJson",
-        name
+        "\n\ninstance EncodeJson {name} where\n  encodeJson = show >>> encodeJson"
     ));
     instances.push_str(&format!(
-        "\n\ninstance DecodeHasura {} where\n  decodeHasura = decodeJson",
-        name
+        "\n\ninstance DecodeHasura {name} where\n  decodeHasura = decodeJson"
     ));
     instances.push_str(&format!(
-        "\n\ninstance EncodeHasura {} where\n  encodeHasura = encodeJson",
-        name
+        "\n\ninstance EncodeHasura {name} where\n  encodeHasura = encodeJson"
     ));
     instances.push_str(&format!(
-        "\n\ninstance Show {} where\n  show a = case a of\n    {}",
-        name,
+        "\n\ninstance Show {name} where\n  show a = case a of\n    {}",
         values
             .iter()
             .zip(original_values.iter())
@@ -119,8 +110,7 @@ fn enum_instances(name: &str, values: &Vec<String>, original_values: &Vec<String
     ));
 
     instances.push_str(&format!(
-        "\n\ninstance Enum {} where\n  succ a = case a of\n    {}\n  pred a = case a of\n    {}",
-        name,
+        "\n\ninstance Enum {name} where\n  succ a = case a of\n    {}\n  pred a = case a of\n    {}",
         values
             .iter()
             .enumerate()
@@ -148,15 +138,13 @@ fn enum_instances(name: &str, values: &Vec<String>, original_values: &Vec<String
     ));
 
     instances.push_str(&format!(
-        "\n\ninstance Bounded {} where\n  top = {}\n  bottom = {}",
-        name,
+        "\n\ninstance Bounded {name} where\n  top = {}\n  bottom = {}",
         values.last().unwrap(),
         values.first().unwrap()
     ));
 
     instances.push_str(&format!(
-        "\n\ninstance BoundedEnum {} where\n  cardinality = Cardinality {}\n  toEnum a = case a of\n    {}\n    _ -> Nothing\n  fromEnum a = case a of\n    {}",
-        name,
+        "\n\ninstance BoundedEnum {name} where\n  cardinality = Cardinality {}\n  toEnum a = case a of\n    {}\n    _ -> Nothing\n  fromEnum a = case a of\n    {}",
         values.len(),
         values
             .iter()

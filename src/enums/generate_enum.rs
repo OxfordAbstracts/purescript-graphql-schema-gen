@@ -1,12 +1,17 @@
 use cynic_introspection::EnumType;
 use stringcase::pascal_case;
 
+use crate::config::workspace::WorkspaceConfig;
 use crate::purescript_gen::purescript_enum::Enum;
 use crate::purescript_gen::purescript_import::PurescriptImport;
 use crate::purescript_gen::purescript_variant::Variant;
 use crate::write::write;
 
-pub async fn generate_enum(en: &EnumType, imports: &mut Vec<PurescriptImport>) -> Option<Variant> {
+pub async fn generate_enum(
+    en: &EnumType,
+    imports: &mut Vec<PurescriptImport>,
+    workspace_config: &WorkspaceConfig,
+) -> Option<Variant> {
     // TODO this env could be faster if it was pulled in and parsed once at the start
     // TODO check timings to see if it makes a difference
     // Fetch the global enum suffixes
@@ -36,14 +41,15 @@ pub async fn generate_enum(en: &EnumType, imports: &mut Vec<PurescriptImport>) -
         let module_name = format!("GeneratedGql.{}", name);
         imports.push(PurescriptImport::new(&module_name, "oa-gql-enums").add_specified(&name));
 
+        let lib_path = format!(
+            "{}{}",
+            &workspace_config.shared_graphql_enums_dir, &workspace_config.shared_graphql_enums_lib
+        );
         write(
-            &format!("./purs/lib/oa-gql-enums/src/GeneratedGql/{name}.purs"),
+            &format!("{lib_path}/src/GeneratedGql/{name}.purs"),
             &format!("module {module_name} ({name}) where\n\n{MODULE_IMPORTS}\n\n{e}{instances}"),
         );
-        write(
-            &format!("./purs/lib/oa-gql-enums/spago.yaml"),
-            &enums_spago_yaml(),
-        );
+        write(&format!("{lib_path}/spago.yaml"), &enums_spago_yaml());
         None
     // Otherwise write schema-specific variant enums
     } else {

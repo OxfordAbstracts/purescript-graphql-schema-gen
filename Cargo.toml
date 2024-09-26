@@ -8,6 +8,7 @@ cynic = { version = "3.8.0", features = ["http-reqwest", "http-reqwest-blocking"
 cynic-introspection = "3.8.0"
 dotenv = "0.15.0"
 futures = "0.3.30"
+hashlink = "0.8.4"
 phf = { version = "0.11.2", features = ["macros"] }
 reqwest = "0.12.7"
 sqlx = { version = "0.8.2", features = ["postgres", "runtime-tokio"] }

@@ -3,9 +3,13 @@ use std::collections::HashMap;
 use sqlx::{postgres::PgPoolOptions, Result};
 use stringcase::pascal_case;
 
-use crate::{purescript_gen::purescript_enum::Enum, write::write};
+use crate::{
+    config::workspace::WorkspaceConfig, purescript_gen::purescript_enum::Enum, write::write,
+};
 
-pub async fn fetch_types() -> Result<HashMap<String, (String, String, String)>> {
+pub async fn fetch_types(
+    workspace_config: &WorkspaceConfig,
+) -> Result<HashMap<String, (String, String, String)>> {
     let db_env = std::env::var("DATABASE_URL");
 
     // when no postgres enums are included, skip the enum generation
@@ -31,23 +35,25 @@ pub async fn fetch_types() -> Result<HashMap<String, (String, String, String)>> 
 
     let mut hash_map = HashMap::new();
 
+    let package_name = pascal_case(&workspace_config.postgres_enums_lib);
+    let lib_path = format!(
+        "{}{}",
+        &workspace_config.postgres_enums_dir, &workspace_config.postgres_enums_lib
+    );
+    let package = &workspace_config.postgres_enums_lib;
+
     for enum_row in res.iter() {
         let name = enum_row.enumtype.clone();
         let type_ = pascal_case(&name);
-        let import = format!("OaEnums.{type_}");
-        let package = "oa-enums".to_string();
-
-        let contents = write_enum_module(&enum_row);
+        let import = format!("{package_name}.{type_}");
+        let contents = write_enum_module(&enum_row, &package_name);
 
         write(
-            &format!("./purs/lib/oa-enums/src/OaEnums/{type_}.purs"),
+            &format!("{lib_path}/src/{package_name}/{type_}.purs"),
             &contents,
         );
-        write(
-            &format!("./purs/lib/oa-enums/spago.yaml"),
-            &enums_spago_yaml(),
-        );
-        hash_map.insert(name, (package, import, type_));
+        write(&format!("{lib_path}/spago.yaml"), &enums_spago_yaml());
+        hash_map.insert(name, (package.clone(), import, type_));
     }
 
     Ok(hash_map)
@@ -79,7 +85,7 @@ struct EnumType {
     enumlabel: Option<Vec<String>>,
 }
 
-fn write_enum_module(enum_row: &EnumType) -> String {
+fn write_enum_module(enum_row: &EnumType, package_name: &str) -> String {
     let name = pascal_case(&enum_row.enumtype);
     let original_values: Vec<String> = match enum_row.enumlabel.as_ref() {
         Some(v) => v.clone(),
@@ -90,14 +96,11 @@ fn write_enum_module(enum_row: &EnumType) -> String {
         .map(|v| pascal_case(v).to_uppercase())
         .collect();
 
-    let mod_name = format!("module OaEnums.{} ({}) where", &name, &name);
+    let mod_name = format!("module {package_name}.{name} ({name}) where");
     let enum_definition = Enum::new(&name).with_values(&values).to_string();
     let instances_and_fns = enum_body(&name, &values, &original_values);
 
-    format!(
-        "{}\n\n{}\n\n{}\n\n{}",
-        mod_name, MODULE_IMPORTS, enum_definition, instances_and_fns
-    )
+    format!("{mod_name}\n\n{MODULE_IMPORTS}\n\n{enum_definition}\n\n{instances_and_fns}")
 }
 
 const MODULE_IMPORTS: &str = r#"import Prelude

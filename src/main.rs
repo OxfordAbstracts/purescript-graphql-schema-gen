@@ -7,6 +7,7 @@ use build_schema::build_schema;
 use config::{
     parse_outside_types::{fetch_all_outside_types, OutsideTypes},
     parse_roles::parse_roles,
+    workspace::parse_workspace,
 };
 use dotenv::dotenv;
 use enums::postgres_types::fetch_types;
@@ -25,8 +26,11 @@ async fn main() -> Result<()> {
     // time the postgres enum type generation
     let type_gen_timer = std::time::Instant::now();
 
+    // Fetch the workspace config
+    let workspace_config = parse_workspace().await?;
+
     // Generate postgres enum types
-    let postgres_types = fetch_types().await.unwrap();
+    let postgres_types = fetch_types(&workspace_config).await.unwrap();
     let num_types = postgres_types.len();
 
     println!(
@@ -38,7 +42,7 @@ async fn main() -> Result<()> {
     let start = std::time::Instant::now();
 
     // Parse all outside type config
-    let outside_types: OutsideTypes = fetch_all_outside_types();
+    let outside_types: OutsideTypes = fetch_all_outside_types(&workspace_config);
 
     // Fetch role config
     let roles: Vec<String> = parse_roles();
@@ -55,6 +59,7 @@ async fn main() -> Result<()> {
             role.clone(),
             types_.clone(),
             outside_types.clone(),
+            workspace_config.clone(),
         )));
     }
     // Join the results

@@ -8,10 +8,12 @@ use yaml_rust2::{yaml, Yaml};
 
 use crate::write::write;
 
+use super::workspace::WorkspaceConfig;
+
 pub type OutsideTypes = HashMap<String, Object>;
 type Object = HashMap<String, Mod>;
 
-pub fn fetch_all_outside_types() -> OutsideTypes {
+pub fn fetch_all_outside_types(workspace_config: &WorkspaceConfig) -> OutsideTypes {
     let outside_types_env =
         std::env::var("OUTSIDE_TYPES_YAML").expect("OUTSIDE_TYPES_YAML must be set");
 
@@ -19,13 +21,13 @@ pub fn fetch_all_outside_types() -> OutsideTypes {
 
     let mut outside_types: OutsideTypes = HashMap::new();
     for loc in outside_type_locs.iter() {
-        let types = fetch_outside_types(loc);
+        let types = fetch_outside_types(loc, workspace_config);
         outside_types.extend(types);
     }
     outside_types
 }
 
-pub fn fetch_outside_types(location: &str) -> OutsideTypes {
+pub fn fetch_outside_types(location: &str, workspace_config: &WorkspaceConfig) -> OutsideTypes {
     let mut f = File::open(location).unwrap();
     let mut s = String::new();
     f.read_to_string(&mut s).unwrap();
@@ -43,7 +45,7 @@ pub fn fetch_outside_types(location: &str) -> OutsideTypes {
             &templates,
         );
 
-        write_types(&outside_types);
+        write_types(&outside_types, workspace_config);
 
         return outside_types;
     } else {
@@ -190,23 +192,27 @@ pub struct Mod {
     pub package: String,
 }
 
-fn write_types(outside_types: &OutsideTypes) {
+fn write_types(outside_types: &OutsideTypes, workspace_config: &WorkspaceConfig) {
     let mut to_write = HashSet::new();
     for (_, table) in outside_types.iter() {
         for (_, module) in table.iter() {
             to_write.insert(module.clone());
         }
     }
-    for module in to_write.iter() {
-        if module.import.contains("OaEnums") || module.import.contains("GeneratedGql") {
-            // Don't bother generating mock for generated enum types
-            continue;
+    let mock_outside_types = std::env::var("MOCK_OUTSIDE_TYPES");
+    if mock_outside_types.is_ok() {
+        let lib_path = workspace_config.shared_graphql_enums_dir.clone();
+        for module in to_write.iter() {
+            if module.import.contains("OaEnums") || module.import.contains("GeneratedGql") {
+                // Don't bother generating mock for generated enum types
+                continue;
+            }
+            write(
+                &format!("{lib_path}/oa-ids/src/{}.purs", &module.import),
+                &mocked_id_module(&module),
+            );
+            write(&format!("{lib_path}/oa-ids/spago.yaml"), &ids_spago_yaml());
         }
-        write(
-            format!("./purs/lib/oa-ids/src/{}.purs", &module.import).as_str(),
-            &mocked_id_module(&module),
-        );
-        write("./purs/lib/oa-ids/spago.yaml", &ids_spago_yaml());
     }
 }
 

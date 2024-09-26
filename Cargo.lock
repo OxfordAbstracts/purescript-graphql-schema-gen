@@ -1548,6 +1548,7 @@ dependencies = [
  "cynic-introspection",
  "dotenv",
  "futures",
+ "hashlink 0.8.4",
  "phf",
  "reqwest",
  "sqlx",

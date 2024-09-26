@@ -13,7 +13,7 @@ use stringcase::{kebab_case, pascal_case};
 use tokio::task::spawn_blocking;
 
 use crate::{
-    config::parse_outside_types::OutsideTypes,
+    config::{parse_outside_types::OutsideTypes, workspace::WorkspaceConfig},
     enums::generate_enum::generate_enum,
     hasura_types::as_gql_field,
     purescript_gen::{
@@ -32,6 +32,7 @@ pub async fn build_schema(
     role: String,
     postgres_types: Arc<Mutex<HashMap<String, (String, String, String)>>>,
     outside_types: Arc<Mutex<OutsideTypes>>,
+    workspace_config: WorkspaceConfig,
 ) -> Result<()> {
     // Fetch the introspection schema
     let graphql_url = std::env::var("GRAPHQL_URL").expect("GRAPHQL_URL must be set");
@@ -217,7 +218,7 @@ pub async fn build_schema(
 
                 // Generate purescript enums for all graphql types
                 // These include table select columns as well as custom enums
-                let enum_to_add = generate_enum(&en, &mut imports).await;
+                let enum_to_add = generate_enum(&en, &mut imports, &workspace_config).await;
                 if let Some(variant) = enum_to_add {
                     add_import("prelude", "Prelude", "Unit", &mut imports);
                     add_import("variant", "Data.Variant", "Variant", &mut imports);
@@ -283,10 +284,17 @@ pub async fn build_schema(
     }
     records.push(schema_record);
 
-    let lib_path = format!("./purs/lib/oa-gql-schema-{}", kebab_case(&role));
+    let lib_path = format!(
+        "{}{}{}",
+        workspace_config.schema_libs_dir,
+        workspace_config.schema_libs_prefix,
+        kebab_case(&role)
+    );
 
+    // Write the schema module to the file system
+    let schema_module_path = format!("{lib_path}/src/{role}.purs");
     write(
-        &format!("{lib_path}/src/{role}.purs"),
+        &schema_module_path,
         &print_module(
             &role,
             &mut types,
@@ -297,12 +305,13 @@ pub async fn build_schema(
         ),
     );
 
+    // Write the directives module
     let path_clone = lib_path.clone();
     spawn_blocking(move || build_directives(path_clone, directive_role, schema.directives));
 
     write(
         &format!("{lib_path}/spago.yaml"),
-        &to_spago_yaml(&role, &imports),
+        &to_spago_yaml(&workspace_config.schema_libs_prefix, &role, &imports),
     );
 
     write(&format!("{lib_path}/.gitignore"), GIT_IGNORE);
@@ -310,12 +319,12 @@ pub async fn build_schema(
     Ok(())
 }
 
-fn to_spago_yaml(role: &str, imports: &Vec<PurescriptImport>) -> String {
+fn to_spago_yaml(prefix: &str, role: &str, imports: &Vec<PurescriptImport>) -> String {
     let mut spago_yaml = "".to_string();
     let kebab_role = kebab_case(role);
     spago_yaml.push_str(&format!(
         r#"package:
-  name: oa-gql-schema-{kebab_role}
+  name: {prefix}{kebab_role}
   dependencies:"#,
     ));
     let mut all_packages: Vec<String> = imports.iter().map(|i| i.package.clone()).collect();

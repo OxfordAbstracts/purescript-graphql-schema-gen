@@ -433,9 +433,14 @@ fn build_directives(lib_path: String, role: String, directives: Vec<Directive>) 
             let mut directive_args_rec = PurescriptRecord::new("Arguments");
             for arg in directive.args.iter() {
                 let arg_name = arg.name.clone();
-                let arg_type = arg.ty.name.clone();
+                // TODO use the shared mutable imports as a mutex rather than a placeholder
+                let arg_type = wrap_type(
+                    Argument::new_type(&arg.ty.name.clone()),
+                    &arg.ty.wrapping,
+                    &mut vec![],
+                );
 
-                directive_args_rec.add_field(Field::new(&arg_name).with_type(&arg_type));
+                directive_args_rec.add_field(Field::new(&arg_name).with_type_arg(arg_type));
             }
             directive_argument.add_argument(Argument::new_record(directive_args_rec));
 
@@ -485,6 +490,7 @@ static ALLOWED_DIRECTIVE_LOCATIONS: [DirectiveLocation; 3] = [
 ];
 
 const DIRECTIVE_IMPORTS: &str = r#"
+import GraphQL.Client.Args (NotNull)
 import GraphQL.Client.Directive (ApplyDirective, applyDir)
 import GraphQL.Client.Directive.Definition (Directive)
 import GraphQL.Client.Directive.Location (QUERY)

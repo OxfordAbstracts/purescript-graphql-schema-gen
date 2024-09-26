@@ -47,7 +47,9 @@ pub async fn generate_enum(
         );
         write(
             &format!("{lib_path}/src/{package_name}/{name}.purs"),
-            &format!("module {module_name} ({name}) where\n\n{MODULE_IMPORTS}\n\n{e}{instances}"),
+            &format!(
+                "module {module_name} ({name}(..)) where\n\n{MODULE_IMPORTS}\n\n{e}{instances}"
+            ),
         );
         write(&format!("{lib_path}/spago.yaml"), &enums_spago_yaml());
         None

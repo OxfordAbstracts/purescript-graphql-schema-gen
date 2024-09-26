@@ -52,16 +52,20 @@ pub async fn fetch_types(
             &format!("{lib_path}/src/{package_name}/{type_}.purs"),
             &contents,
         );
-        write(&format!("{lib_path}/spago.yaml"), &enums_spago_yaml());
+        write(
+            &format!("{lib_path}/spago.yaml"),
+            &enums_spago_yaml(package),
+        );
         hash_map.insert(name, (package.clone(), import, type_));
     }
 
     Ok(hash_map)
 }
 
-fn enums_spago_yaml() -> String {
-    r#"package:
-  name: oa-enums
+fn enums_spago_yaml(name: &str) -> String {
+    format!(
+        r#"package:
+  name: {name}
   dependencies:
     - argonaut
     - argonaut-codecs
@@ -76,7 +80,7 @@ fn enums_spago_yaml() -> String {
     - simple-json
     - transformers
 "#
-    .to_string()
+    )
 }
 
 #[derive(sqlx::Type, sqlx::FromRow)]

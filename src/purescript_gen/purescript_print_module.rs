@@ -12,7 +12,7 @@ pub fn print_module(
     variants: &mut Vec<Variant>,
     instances: &mut Vec<DeriveInstance>,
 ) -> String {
-    let mut module = format!("module {role} where");
+    let mut module = format!("module Schema.{role} where");
     types.sort_by_key(|t| t.name.clone());
     types.dedup_by_key(|t| t.name.clone());
 

@@ -292,7 +292,7 @@ pub async fn build_schema(
     );
 
     // Write the schema module to the file system
-    let schema_module_path = format!("{lib_path}/src/{role}.purs");
+    let schema_module_path = format!("{lib_path}/src/Schema/{role}.purs");
     write(
         &schema_module_path,
         &print_module(

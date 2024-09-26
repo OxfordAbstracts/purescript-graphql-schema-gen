@@ -100,7 +100,7 @@ fn write_enum_module(enum_row: &EnumType, package_name: &str) -> String {
         .map(|v| snake_case(v).to_uppercase())
         .collect();
 
-    let mod_name = format!("module {package_name}.{name} ({name}) where");
+    let mod_name = format!("module {package_name}.{name} ({name}(..)) where");
     let enum_definition = Enum::new(&name).with_values(&values).to_string();
     let instances_and_fns = enum_body(&name, &values, &original_values);
 

@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use sqlx::{postgres::PgPoolOptions, Result};
-use stringcase::pascal_case;
+use stringcase::{pascal_case, snake_case};
 
 use crate::{
     config::workspace::WorkspaceConfig, purescript_gen::purescript_enum::Enum, write::write,
@@ -97,7 +97,7 @@ fn write_enum_module(enum_row: &EnumType, package_name: &str) -> String {
     };
     let values = original_values
         .iter()
-        .map(|v| pascal_case(v).to_uppercase())
+        .map(|v| snake_case(v).to_uppercase())
         .collect();
 
     let mod_name = format!("module {package_name}.{name} ({name}) where");

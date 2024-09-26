@@ -17,6 +17,7 @@ impl Enum {
     }
 
     pub fn to_string(&self) -> String {
-        format!("data {}\n  = {}", self.name, self.values.join("\n  | "))
+        let Self { name, values } = self;
+        format!("data {name}\n  = {}", values.join("\n  | "))
     }
 }

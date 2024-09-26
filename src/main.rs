@@ -30,8 +30,7 @@ async fn main() -> Result<()> {
     let num_types = postgres_types.len();
 
     println!(
-        "Generated {} postgres enums in {:.2}s",
-        num_types,
+        "Generated {num_types} postgres enums in {:.2}s",
         type_gen_timer.elapsed().as_secs_f32()
     );
 
@@ -65,8 +64,7 @@ async fn main() -> Result<()> {
     }
 
     println!(
-        "Generated {} schemas in {:.2}s",
-        num_roles,
+        "Generated {num_roles} schemas in {:.2}s",
         start.elapsed().as_secs_f32()
     );
 

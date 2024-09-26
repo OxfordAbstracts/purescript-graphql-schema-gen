@@ -26,24 +26,24 @@ outside_types:
   user:
     with: common
     id: id=UserId
-    email: EmailAddress, Data.EmailAddress
+    email: EmailAddress, Data.EmailAddress, emails
 ```
 
-This would replace the `id` field with the `UserId` type (see `types` section below). It would also replace the `email` field with an inline type of the format: `[type_name], [module name]`.
+This would replace the 'id' field with the 'UserId' type (see 'types' section below). It would also replace the 'email' field with an inline type of the format: `[type name], [module name], [package name]`.
 
-The `with` key is an optional special key that allows you to define a common set of types to use across multiple objects. For example, if you wanted to use a `common` set of types on both the `user` and `post` objects, you would define `common` types in the `templates` section and then add the `with: common` key to the `user` and `post` objects.
+The `with` key is an optional special key that allows you to define a common set of types to use across multiple objects. For example, if you wanted to use a 'common' set of types on both the 'user' and 'post' objects, you would define 'common' types in the 'templates' section and then add a `with: common` key to the 'user' and 'post' objects.
 
-### `types`:
+### types:
 
-This section is where you define shorthand templates for your different type modules. An example for a couple of `Id` modules is:
+This section is where you define shorthand type templates modules containing multiple types. An example for a couple of `Id` modules is:
 
 ```yaml
 types:
-  id: $, Data.Id.$
-  drId: $, Data.Id.DelegateRegistration.$
+  id: $, Data.Id.$, oa-ids
+  drId: $, Data.Id.DelegateRegistration.$, oa-ids
 ```
 
-The `$` is a placeholder for the type name that the type is called with in templates or outside_types. For example in the `outside_types` section above, we use `id=UserId` which is translated into `UserId, Data.Id.UserId`.
+The '$' symbol is a placeholder for the type name that the type is called with in templates or outside_types. For example in the 'outside_types' section above, we use `id=UserId` which is translated into `UserId, Data.Id.UserId, oa-ids`.
 
 ### `templates`:
 

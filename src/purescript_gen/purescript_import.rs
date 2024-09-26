@@ -67,13 +67,13 @@ impl PurescriptImport {
             .collect::<Vec<String>>();
         let specified = match specified.join(", ").as_str() {
             "" => "",
-            s => &format!("({})", s).to_string(),
+            s => &format!("({s})").to_string(),
         };
         let as_name = match &self.as_name {
-            Some(name) => format!("as {}", name),
+            Some(name) => format!("as {name}"),
             None => "".to_string(),
         };
-        format!("import {} {}{}", self.module, specified, as_name)
+        format!("import {} {specified}{as_name}", self.module)
             .trim()
             .to_string()
     }

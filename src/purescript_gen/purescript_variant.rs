@@ -23,6 +23,6 @@ impl Variant {
             .map(|v| format!("\"{}\" :: Unit", v))
             .collect::<Vec<String>>()
             .join("\n  , ");
-        format!("type {} = Variant\n  ( {}\n  )", self.name, values)
+        format!("type {} = Variant\n  ( {values}\n  )", self.name)
     }
 }

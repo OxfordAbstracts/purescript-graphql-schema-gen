@@ -37,8 +37,7 @@ impl PurescriptFunctionType {
 
 fn format_args(name: &String, args: &Vec<Argument>) -> String {
     format!(
-        "{} {}",
-        name,
+        "{name} {}",
         args.iter()
             .map(|arg| arg.to_string_nestable(false))
             .collect::<Vec<String>>()
@@ -50,8 +49,7 @@ fn format_args(name: &String, args: &Vec<Argument>) -> String {
 
 fn format_args_wrapped(name: &String, args: &Vec<Argument>) -> String {
     format!(
-        "({} {})",
-        name,
+        "({name} {})",
         args.iter()
             .map(|arg| arg.to_string_nestable(false))
             .collect::<Vec<String>>()

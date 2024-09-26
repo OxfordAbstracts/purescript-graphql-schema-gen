@@ -12,8 +12,7 @@ impl PurescriptType {
         for forall in value.get_all_forall_types() {
             if !arguments.contains(&forall.as_str()) {
                 panic!(
-                    "There's a forall type in the body of type '{}' that doesn't appear in the head: '{}'",
-                    name, forall
+                    "There's a forall type in the body of type '{name}' that doesn't appear in the head: '{forall}'",
                 );
             }
         }
@@ -42,16 +41,12 @@ impl PurescriptType {
                     .join(" ")
             ),
         };
+        let name = &self.name;
+        let value_string = self.value.to_string();
         if self.newtype {
-            format!(
-                "newtype {}{} = {}\n  {}",
-                self.name,
-                args,
-                self.name,
-                self.value.to_string()
-            )
+            format!("newtype {name}{args} = {name}\n  {value_string}")
         } else {
-            format!("type {}{} = {}", self.name, args, self.value.to_string())
+            format!("type {name}{args} = {value_string}")
         }
     }
 }

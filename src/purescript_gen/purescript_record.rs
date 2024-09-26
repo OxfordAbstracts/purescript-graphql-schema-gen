@@ -55,13 +55,13 @@ impl PurescriptRecord {
             .flat_map(|arg| arg.get_all_forall_types())
             .collect::<Vec<String>>();
         for field in fields {
-            if self.fields.iter().any(|f| f.name == field.name) {
-                return Some(format!("Field with name '{}' already exists", field.name));
+            let name = &field.name;
+            if self.fields.iter().any(|f| &f.name == name) {
+                return Some(format!("Field with name '{name}' already exists"));
             }
             if to_add.iter().filter(|&n| n == &field.name).count() > 1 {
                 return Some(format!(
-                    "Cannot add multiple fields with the same name: '{}'",
-                    field.name
+                    "Cannot add multiple fields with the same name: '{name}'"
                 ));
             }
             if field
@@ -71,8 +71,7 @@ impl PurescriptRecord {
                 .any(|t| !all_forall_args.contains(t))
             {
                 return Some(format!(
-                    "Field '{}' uses a forall type '{}' that is not defined in the record arguments",
-                    field.name,
+                    "Field '{name}' uses a forall type '{}' that is not defined in the record arguments",
                     field.type_name.to_string()
                 ));
             }
@@ -81,7 +80,7 @@ impl PurescriptRecord {
     }
     pub fn add_field(&mut self, field: Field) -> &mut Self {
         if let Some(err) = self.validate_fields(vec![&field]) {
-            panic!("{}", err);
+            panic!("{err}");
         }
 
         self.fields.push(field);
@@ -107,7 +106,7 @@ impl PurescriptRecord {
             .as_str()
         {
             "" => "",
-            x => &format!(" {}", x),
+            x => &format!(" {x}"),
         };
         let fields = self
             .fields
@@ -121,17 +120,17 @@ impl PurescriptRecord {
                 return format!("type {}{} = {{}}", self.name, arguments);
             }
             if self.fields.len() == 1 {
-                return format!("type {}{} = {{ {} }}", self.name, arguments, fields);
+                return format!("type {}{} = {{ {fields} }}", self.name, arguments);
             }
-            format!("type {}{} =\n  {{ {}\n  }}", self.name, arguments, fields)
+            format!("type {}{} =\n  {{ {fields}\n  }}", self.name, arguments)
         } else {
             if self.fields.len() == 0 {
                 return "{}".to_string();
             }
             if self.fields.len() == 1 {
-                return format!("{{ {} }}", fields);
+                return format!("{{ {fields} }}");
             }
-            format!("{{ {}\n  }}", fields)
+            format!("{{ {fields}\n  }}")
         }
     }
 

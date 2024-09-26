@@ -6,7 +6,8 @@ use std::{
 
 use cynic::{http::ReqwestExt, QueryBuilder};
 use cynic_introspection::{
-    Directive, DirectiveLocation, FieldWrapping, IntrospectionQuery, Type, WrappingType,
+    Directive, DirectiveLocation, FieldWrapping, InterfaceType, IntrospectionQuery, Type,
+    UnionType, WrappingType,
 };
 use stringcase::{kebab_case, pascal_case};
 use tokio::task::spawn_blocking;
@@ -73,7 +74,7 @@ pub async fn build_schema(
     // as well as the import for the role directives that we're about to create
     add_import(
         "prelude", // It's not from here but we always import this so can use as a default
-        &format!("{}.Directives", role),
+        &format!("{role}.Directives"),
         "Directives",
         &mut imports,
     );
@@ -261,13 +262,13 @@ pub async fn build_schema(
                 instances.push(derive_new_type_instance(&query_type.name));
                 types.push(query_type);
             }
-            Type::Interface(int) => {
+            Type::Interface(InterfaceType { name, .. }) => {
                 // Currently ignored as we don't have any in our schemas
-                println!("Interface: {}", int.name);
+                println!("Interface: {name}");
             }
-            Type::Union(uni) => {
+            Type::Union(UnionType { name, .. }) => {
                 // Currently ignored as we don't have any in our schemas
-                println!("Union: {}", uni.name);
+                println!("Union: {name}");
             }
         }
     }
@@ -285,7 +286,7 @@ pub async fn build_schema(
     let lib_path = format!("./purs/lib/oa-gql-schema-{}", kebab_case(&role));
 
     write(
-        &format!("{}/src/{}.purs", &lib_path, role),
+        &format!("{lib_path}/src/{role}.purs"),
         &print_module(
             &role,
             &mut types,
@@ -300,11 +301,11 @@ pub async fn build_schema(
     spawn_blocking(move || build_directives(path_clone, directive_role, schema.directives));
 
     write(
-        &format!("{}/spago.yaml", &lib_path),
+        &format!("{lib_path}/spago.yaml"),
         &to_spago_yaml(&role, &imports),
     );
 
-    write(&format!("{}/.gitignore", &lib_path), GIT_IGNORE);
+    write(&format!("{lib_path}/.gitignore"), GIT_IGNORE);
 
     Ok(())
 }
@@ -400,13 +401,13 @@ fn build_directives(lib_path: String, role: String, directives: Vec<Directive>) 
     let mut directive_mod = "".to_string();
     // Push the module header + types type + declaration to the directive module
     directive_mod.push_str(&format!(
-        "module {}.Directives where \n{}",
-        role, DIRECTIVE_IMPORTS
+        "module {role}.Directives where \n{DIRECTIVE_IMPORTS}"
     ));
 
     let mut directive_types = "".to_string();
     let mut directive_functions = "".to_string();
     for directive in directives {
+        let directive_name = directive.name;
         let locations = &directive.locations;
         let allowed_location = locations.iter().any(is_allowed_location);
         if allowed_location {
@@ -416,8 +417,8 @@ fn build_directives(lib_path: String, role: String, directives: Vec<Directive>) 
             let type_type = "type Directives :: List' Type\n";
             // Initialise the directive types argument with name and description (defaulted to "")
             let mut directive_argument = Argument::new_type("Directive")
-                .with_argument(Argument::new_type(&format!(r#""{}""#, directive.name)))
-                .with_argument(Argument::new_type(&format!(r#""{}""#, description)));
+                .with_argument(Argument::new_type(&format!(r#""{directive_name}""#)))
+                .with_argument(Argument::new_type(&format!(r#""{description}""#)));
 
             // Build the arguments record
             let mut directive_args_rec = PurescriptRecord::new("Arguments");
@@ -438,7 +439,7 @@ fn build_directives(lib_path: String, role: String, directives: Vec<Directive>) 
                 _ => "QUERY",
             };
             let locations_type_level_list =
-                Argument::new_type(&format!("({} :> Nil') :> Nil'", locations_type));
+                Argument::new_type(&format!("({locations_type} :> Nil') :> Nil'"));
             directive_argument.add_argument(locations_type_level_list);
 
             // Define the directives type
@@ -446,14 +447,12 @@ fn build_directives(lib_path: String, role: String, directives: Vec<Directive>) 
             directive_types.push_str(&type_type);
             directive_types.push_str(&directive_type.to_string());
         }
-
         // Add the apply directive function
         let function = format!(
             r#"
-{} :: forall q args. args -> q -> ApplyDirective "{}" args q
-{} = applyDir (Proxy :: _ "{}")
-"#,
-            directive.name, directive.name, directive.name, directive.name
+{directive_name} :: forall q args. args -> q -> ApplyDirective "{directive_name}" args q
+{directive_name} = applyDir (Proxy :: _ "{directive_name}")
+"#
         );
         directive_functions.push_str(&function);
     }
@@ -461,7 +460,7 @@ fn build_directives(lib_path: String, role: String, directives: Vec<Directive>) 
     directive_mod.push_str([directive_types, directive_functions].join("\n").trim());
 
     write(
-        &format!("{}/src/{}/Directives.purs", lib_path, role),
+        &format!("{lib_path}/src/{role}/Directives.purs"),
         &directive_mod,
     );
 }

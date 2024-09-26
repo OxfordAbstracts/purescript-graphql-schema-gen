@@ -1,7 +1,13 @@
 - [x] Add roles as config
 - [x] Add outside type files as env vars
-- [ ] Directives
+- [x] Directives (done but very hard-coded)
 - [ ] Tests
 - [x] Documentation of config
 - [x] More comments + modularisation where possible
+- [ ] Output directories as config
+- [x] Make postgres type-gen optional
+- [ ] Make roles more flexible (e.g. allow for headers rather than just roles)
+- [ ] Make purescript gen more generic with tests
+- [ ] Replace outside config with placeholder config
+- [ ] Produce binaries including cross compiling to ubuntu for CI
 - [ ] Cache hash of all migrations + the branch name and only run full refresh when both change between runs. This would likely mean that a different branch with some extra migrations has been checked out and a refresh is required. But generally if working on the same branch the current db would be used instead so no migration chain.

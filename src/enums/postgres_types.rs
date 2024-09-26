@@ -6,15 +6,20 @@ use stringcase::pascal_case;
 use crate::{purescript_gen::purescript_enum::Enum, write::write};
 
 pub async fn fetch_types() -> Result<HashMap<String, (String, String, String)>> {
-    let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+    let db_env = std::env::var("DATABASE_URL");
+
+    // when no postgres enums are included, skip the enum generation
+    if db_env.is_err() {
+        return Ok(HashMap::new());
+    }
+    let database_url = db_env.unwrap();
     let pool = PgPoolOptions::new()
         .max_connections(1)
         .connect(&database_url)
         .await
         .expect("Failed to create pool");
 
-    let res = sqlx::query_as!(
-        EnumType,
+    let res: Vec<EnumType> = sqlx::query_as::<_, EnumType>(
         r#"SELECT pg_type.typname AS enumtype, array_agg(pg_enum.enumlabel) as enumlabel
       FROM pg_type
       INNER JOIN pg_enum ON pg_enum.enumtypid = pg_type.oid
@@ -68,7 +73,7 @@ fn enums_spago_yaml() -> String {
     .to_string()
 }
 
-#[derive(sqlx::Type)]
+#[derive(sqlx::Type, sqlx::FromRow)]
 struct EnumType {
     enumtype: String,
     enumlabel: Option<Vec<String>>,
@@ -135,60 +140,49 @@ all{} =
     ));
 
     instances.push_str(&format!(
-        "\n\ninstance Eq {} where\n  eq = eq `on` show",
-        name
+        "\n\ninstance Eq {name} where\n  eq = eq `on` show",
     ));
 
     instances.push_str(&format!(
-        "\n\ninstance Ord {} where\n  compare = compare `on` show",
-        name
+        "\n\ninstance Ord {name} where\n  compare = compare `on` show",
     ));
 
     instances.push_str(&format!(
-        "\n\ninstance Enum {} where\n  pred a = do\n    idx <- findIndex (eq a) all{}\n    all{} !! (idx - 1)\n  succ a = do\n    idx <- findIndex (eq a) all{}\n    all{} !! (idx + 1)",
-        name, name, name, name, name
+        "\n\ninstance Enum {name} where\n  pred a = do\n    idx <- findIndex (eq a) all{name}\n    all{name} !! (idx - 1)\n  succ a = do\n    idx <- findIndex (eq a) all{name}\n    all{name} !! (idx + 1)",
     ));
 
     instances.push_str(&format!(
-        "\n\ninstance Bounded {} where\n  top = {}\n  bottom = {}",
-        name,
+        "\n\ninstance Bounded {name} where\n  top = {}\n  bottom = {}",
         values.last().unwrap(),
         values.first().unwrap()
     ));
 
     instances.push_str(&format!(
-        "\n\ninstance Decode {} where\n  decode =\n    readString\n      >=>\n        ( fromString\n            >>> decodeJson\n            >>> lmap (printJsonDecodeError >>> ForeignError >>> pure)\n            >>> except\n        )",
-         name,
+        "\n\ninstance Decode {name} where\n  decode =\n    readString\n      >=>\n        ( fromString\n            >>> decodeJson\n            >>> lmap (printJsonDecodeError >>> ForeignError >>> pure)\n            >>> except\n        )",
     ));
 
     instances.push_str(&format!(
-        "\n\ninstance Encode {} where\n  encode = show >>> encode",
-        name
+        "\n\ninstance Encode {name} where\n  encode = show >>> encode",
     ));
 
     instances.push_str(&format!(
-        "\n\ninstance WriteForeign {} where\n  writeImpl = encode",
-        name
+        "\n\ninstance WriteForeign {name} where\n  writeImpl = encode",
     ));
 
     instances.push_str(&format!(
-        "\n\ninstance ReadForeign {} where\n  readImpl = decode",
-        name
+        "\n\ninstance ReadForeign {name} where\n  readImpl = decode",
     ));
 
     instances.push_str(&format!(
-        "\n\ninstance DecodeHasura {} where\n  decodeHasura = decodeJson",
-        name
+        "\n\ninstance DecodeHasura {name} where\n  decodeHasura = decodeJson",
     ));
 
     instances.push_str(&format!(
-        "\n\ninstance EncodeHasura {} where\n  encodeHasura = show >>> encodeJson",
-        name
+        "\n\ninstance EncodeHasura {name} where\n  encodeHasura = show >>> encodeJson",
     ));
 
     instances.push_str(&format!(
-        "\n\ninstance Show {} where\n  show = case _ of\n    {}",
-        name,
+        "\n\ninstance Show {name} where\n  show = case _ of\n    {}",
         values
             .iter()
             .zip(original_values.iter())
@@ -198,20 +192,17 @@ all{} =
     ));
 
     instances.push_str(&format!(
-        "\n\ninstance GqlArgString {} where\n  toGqlArgStringImpl = show >>> show",
-        name
+        "\n\ninstance GqlArgString {name} where\n  toGqlArgStringImpl = show >>> show",
     ));
 
     instances.push_str(&format!(
-        "\n\ninstance DecodeJson {} where\n  decodeJson =\n    decodeJson\n      >=> case _ of\n        {}\n        str ->\n          Left\n            $ TypeMismatch\n            $ \"Failed to decode {} from string: \"\n                <> str",
-        name,
+        "\n\ninstance DecodeJson {name} where\n  decodeJson =\n    decodeJson\n      >=> case _ of\n        {}\n        str ->\n          Left\n            $ TypeMismatch\n            $ \"Failed to decode {name} from string: \"\n                <> str",
         values
             .iter()
             .zip(original_values.iter())
             .map(|(v, o)| format!("\"{}\" -> pure {}", o, v))
             .collect::<Vec<String>>()
             .join("\n        "),
-        name
     ));
 
     // instances.push_str(&format!(

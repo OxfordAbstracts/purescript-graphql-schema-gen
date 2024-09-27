@@ -36,7 +36,30 @@ fn outside_type(
     purs_types: &Arc<Mutex<HashMap<String, (String, String, String)>>>,
     outside_types: &Arc<Mutex<OutsideTypes>>,
 ) -> (Option<(String, String)>, String) {
-    if let Some((package, import, type_)) = get_outside_type(object, field, outside_types) {
+    let is_comparison_fn = name.ends_with("_comparison_exp");
+
+    let new_object;
+    // TODO - THIS IS SLOOOOW: should check for exact matches first
+    // then process comparison expressions after
+    match MODULE_SUFFIXES.iter().find(|s| object.ends_with(**s)) {
+        None => {
+            new_object = object;
+        }
+        Some(suffix) => {
+            new_object = object.strip_suffix(suffix).unwrap();
+        }
+    }
+
+    if let Some((package, import, type_)) = get_outside_type(new_object, field, outside_types) {
+        if is_comparison_fn {
+            return (
+                Some((
+                    "graphql-client".to_string(),
+                    "GraphQL.Hasura.ComparisonExp".to_string(), // There's a special case in print_module to remove the exports from this module
+                )),
+                format!("(ComparisonExp {type_})"),
+            );
+        }
         (Some((package, import)), type_)
     } else if let Some((package, import, type_)) = purs_types.lock().unwrap().get(name) {
         (Some((package.clone(), import.clone())), type_.clone())
@@ -44,6 +67,16 @@ fn outside_type(
         (None, base_types(name).to_string())
     }
 }
+
+const MODULE_SUFFIXES: [&str; 7] = [
+    "_insert_input",
+    "_min_fields",
+    "_max_fields",
+    "_set_input",
+    "_by_pk",
+    "_pk_columns_input",
+    "_bool_exp",
+];
 
 fn get_outside_type(
     object: &str,

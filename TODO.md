@@ -4,8 +4,10 @@
 - [ ] Tests
 - [x] Documentation of config
 - [x] More comments + modularisation where possible
-- [ ] Output directories as config
+- [x] Output directories as config
 - [x] Make postgres type-gen optional
+- [x] Move comparison expressions to schema
+- [ ] Allow custom instances in enum modules (OaFixture)
 - [ ] Make roles more flexible (e.g. allow for headers rather than just roles)
 - [ ] Make purescript gen more generic with tests
 - [ ] Replace outside config with placeholder config

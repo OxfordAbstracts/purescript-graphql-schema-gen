@@ -79,6 +79,7 @@ fn enums_spago_yaml(name: &str) -> String {
     - prelude
     - simple-json
     - transformers
+    - oa-make-fixture
 "#
     )
 }
@@ -122,7 +123,7 @@ import Foreign.Class (class Decode, class Encode, decode, encode)
 import GraphQL.Client.ToGqlString (class GqlArgString)
 import GraphQL.Hasura.Decode (class DecodeHasura)
 import GraphQL.Hasura.Encode (class EncodeHasura)
--- import OaMakeFixture (class MakeFixture)
+import OaMakeFixture (class MakeFixture)
 import Simple.JSON (class ReadForeign, class WriteForeign)"#;
 
 pub fn enum_body(name: &str, values: &Vec<String>, original_values: &Vec<String>) -> String {
@@ -139,11 +140,10 @@ pub fn enum_body(name: &str, values: &Vec<String>, original_values: &Vec<String>
         .join("\n");
 
     instances.push_str(&format!(
-        "all{} :: Array {}
-all{} =
-{}
-  ]",
-        name, name, name, in_array
+        "all{name} :: Array {name}
+all{name} =
+{in_array}
+  ]"
     ));
 
     instances.push_str(&format!(
@@ -212,11 +212,11 @@ all{} =
             .join("\n        "),
     ));
 
-    // instances.push_str(&format!(
-    //     "\n\ninstance MakeFixture {} where\n  mkFixture = {}",
-    //     name,
-    //     values.first().unwrap()
-    // ));
+    instances.push_str(&format!(
+        "\n\ninstance MakeFixture {} where\n  mkFixture = {}",
+        name,
+        values.first().unwrap()
+    ));
 
     instances
 }

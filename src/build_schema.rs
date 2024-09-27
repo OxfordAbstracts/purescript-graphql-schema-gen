@@ -148,7 +148,7 @@ pub async fn build_schema(
                     for arg in &field.args {
                         let arg_type = wrap_type(
                             as_gql_field(
-                                &obj.name,
+                                &field.name,
                                 &arg.name,
                                 &arg.ty.name,
                                 &mut imports,

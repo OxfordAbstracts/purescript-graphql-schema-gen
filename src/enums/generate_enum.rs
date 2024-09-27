@@ -69,10 +69,10 @@ fn first_upper(s: &str) -> String {
 
 fn enum_instances(name: &str, values: &Vec<String>, original_values: &Vec<String>) -> String {
     let mut instances = String::new();
-    // instances.push_str(&format!(
-    //     "\ninstance MakeFixture {} where mkFixture = {}",
-    //     name, values[0]
-    // ));
+    instances.push_str(&format!(
+        "\n\ninstance MakeFixture {name} where mkFixture = {}",
+        values[0]
+    ));
     instances.push_str(&format!(
         "\n\ninstance FC.Decode {name} where\n  decode = unsafeFromForeign >>> decodeJson >>> lmap (D.printJsonDecodeError >>> F.ForeignError >>> pure) >>> except",
     ));
@@ -181,6 +181,7 @@ fn enums_spago_yaml() -> String {
     - prelude
     - simple-json
     - transformers
+    - oa-make-fixture
 "#
     .to_string()
 }
@@ -196,7 +197,7 @@ import Data.Maybe (Maybe(..))
 import GraphQL.Client.ToGqlString (class GqlArgString)
 import GraphQL.Hasura.Decode (class DecodeHasura)
 import GraphQL.Hasura.Encode (class EncodeHasura)
--- import OaMakeFixture (class MakeFixture)
+import OaMakeFixture (class MakeFixture)
 import Foreign (unsafeFromForeign, unsafeToForeign)
 import Foreign as F
 import Data.Argonaut.Decode as D

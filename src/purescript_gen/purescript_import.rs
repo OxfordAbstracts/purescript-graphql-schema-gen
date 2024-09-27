@@ -1,14 +1,14 @@
 #[derive(Clone)]
 pub struct PurescriptImport {
     pub module: String,
-    specified: Vec<Specified>,
+    pub specified: Vec<Specified>,
     pub as_name: Option<String>,
     pub package: String,
 }
 
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd)]
-struct Specified {
-    import: String,
+pub struct Specified {
+    pub import: String,
 }
 
 impl Specified {
@@ -56,6 +56,12 @@ impl PurescriptImport {
             import: import.to_string(),
         });
         self
+    }
+
+    pub fn add_specified_mut(&mut self, import: &str) {
+        self.specified.push(Specified {
+            import: import.to_string(),
+        });
     }
 
     pub fn to_string(&mut self) -> String {

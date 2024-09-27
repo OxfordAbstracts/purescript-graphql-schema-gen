@@ -1,6 +1,6 @@
-postgres_enums_lib: oa-enums2
-postgres_enums_dir: ./purs/lib/generated/
+postgres_enums_lib: oa-enums-postgres
+postgres_enums_dir: ../OxfordAbstracts/application/purs-projects/lib/generated-new/
 shared_graphql_enums_lib: oa-gql-enums
-shared_graphql_enums_dir: ./purs/lib/generated/
+shared_graphql_enums_dir: ../OxfordAbstracts/application/purs-projects/lib/generated-new/
 schema_libs_prefix: oa-gql-schema-
-schema_libs_dir: ./purs/lib/generated/
+schema_libs_dir: ../OxfordAbstracts/application/purs-projects/lib/generated-new/

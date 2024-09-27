@@ -30,7 +30,13 @@ pub fn print_module(
         .to_string();
     let imports = PurescriptImport::merge(&imports)
         .iter_mut()
-        .map(|i| i.to_string())
+        .map(|i| {
+            if i.module == "GraphQL.Hasura.ComparisonExp" {
+                i.specified = vec![];
+                i.add_specified_mut("ComparisonExp");
+            }
+            i.to_string()
+        })
         .collect::<Vec<String>>()
         .join("\n")
         .to_string();

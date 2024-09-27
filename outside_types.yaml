@@ -9,7 +9,7 @@ outside_types:
     with: common
   authors:
     with: common
-    id: id=AuthorIdAuthorId
+    id: id=AuthorId
   author_users:
     with: common
   author_versions:
@@ -45,7 +45,7 @@ outside_types:
     recipient_id: id=CertificateRecipientId
   certificates_invoices:
     with: common
-    line_items: LineItems, GqlOverrides.CertificatesInvoiceLineItems, oa-ids
+    line_items: LineItems, GqlOverrides.CertificatesInvoiceLineItems, oa-override-gql
   clients:
     with: common
   clients_permissions:
@@ -58,11 +58,11 @@ outside_types:
     with: common
   delreg_registrations:
     with: common
-    id: drId=DelRegRegistrationId
+    id: id=DelRegRegistrationId
     created_by: id=UserId
     last_updated_by: id=UserId
-    delreg_registration_id: drId=DelRegRegistrationId
-    delreg_registration_serial: drId=DelRegRegistrationSerial
+    delreg_registration_id: id=DelRegRegistrationId
+    delreg_registration_serial: id=DelRegRegistrationSerial
   dr_addon_questions:
     with: delreg_common
   dr_addons:
@@ -109,14 +109,14 @@ outside_types:
   virtual_conference_homepage:
     with: common
   virtual_conference_homepage_tabs:
-    content: Document, OaComponents.DocumentEditor.Data.Document, oa-ids
+    content: Document, OaComponents.DocumentEditor.Data.Document, oa-components
   dr_event_details:
     with: delreg_common
     stripe_account_id: drId=DrStripeAccountId
   dr_event_landing:
     with: delreg_common
-    content: Document, OaComponents.DocumentEditor.Data.Document, oa-ids
-    location: Location, DelegateRegistration.Landing.Location, oa-ids
+    content: Document, OaComponents.DocumentEditor.Data.Document, oa-components
+    location: Location, DelegateRegistration.Landing.Location, oa-dr-landing
   dr_marketing_campaigns:
     with: delreg_common
     id: drId=DrMarketingCampaignId
@@ -143,7 +143,7 @@ outside_types:
     id: drId=DrQuestionId
     depends_on: drId=DrQuestionId
     rich_text: Deltas, OaQuill.Data.QuillDeltas, oa-ids
-    description: RawHtml, GqlOverrides.RawHTML, oa-ids # renamed type to avoid clash
+    description: RawHtml, GqlOverrides.RawHTML, oa-override-gql # renamed type to avoid clash
   dr_invoice_questions:
     with: delreg_common
     id: drId=DrInvoiceQuestionId
@@ -198,12 +198,12 @@ outside_types:
   dr_tickets:
     with: delreg_common
     id: drId=DrTicketId
-    description_html: RawHtml, GqlOverrides.RawHTML, oa-ids # renamed type to avoid clash - aliasing would work too
+    description_html: RawHtml, GqlOverrides.RawHTML, oa-override-gql # renamed type to avoid clash - aliasing would work too
   dr_service_fee_charges:
     with: common
-  # dr_payment_type_fees_aggregate: # why are these types odd?
-    # payment_type: DrOrderPaymentTypeEnum, GqlOverrides.DrOrderPaymentTypeEnum
-    # currency: DrCurrenciesEnum, GqlOverrides.DrCurrenciesEnum
+  dr_payment_type_fees_aggregate: # why are these types odd?
+    payment_type: DrOrderPaymentTypeEnum, OaGqlEnums.DrOrderPaymentTypeEnum, oa-gql-enums
+    currency: DrCurrenciesEnum, OaGqlEnums.DrCurrenciesEnum, oa-gql-enums
   dr_tax_rules:
     with: delreg_common
     id: drId=DrTaxRuleId
@@ -216,7 +216,7 @@ outside_types:
     with: common
     id: id=EventId
     timezone: dataType=EventTimezone
-    secure_program_allowed_delegate_status: DelegateStatuses, GqlOverrides.DelegateStatus, oa-ids
+    secure_program_allowed_delegate_status: DelegateStatuses, GqlOverrides.DelegateStatus, oa-override-gql
   events_permissions:
     with: common
   event_payments:
@@ -515,8 +515,8 @@ outside_types:
 types:
   id: $, Data.Id.$, oa-ids
   drId: $, Data.Id.DelegateRegistration.$, oa-ids
-  override: $, GqlOverrides.$, oa-ids
-  dataType: $, OaVirtual.Data.$, oa-ids
+  override: $, GqlOverrides.$, oa-override-gql
+  dataType: $, OaVirtual.Data.$, oa-virtual-shared
 templates:
   common:
     author_id: id=AuthorId

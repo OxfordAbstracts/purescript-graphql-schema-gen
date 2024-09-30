@@ -80,6 +80,7 @@ fn enums_spago_yaml(name: &str) -> String {
     - simple-json
     - transformers
     - oa-make-fixture
+    - oa-encode-decode
 "#
     )
 }
@@ -101,7 +102,7 @@ fn write_enum_module(enum_row: &EnumType, package_name: &str) -> String {
         .map(|v| snake_case(v).to_uppercase())
         .collect();
 
-    let mod_name = format!("module {package_name}.{name} ({name}(..)) where");
+    let mod_name = format!("module {package_name}.{name} where");
     let enum_definition = Enum::new(&name).with_values(&values).to_string();
     let instances_and_fns = enum_body(&name, &values, &original_values);
 
@@ -124,7 +125,9 @@ import GraphQL.Client.ToGqlString (class GqlArgString)
 import GraphQL.Hasura.Decode (class DecodeHasura)
 import GraphQL.Hasura.Encode (class EncodeHasura)
 import OaMakeFixture (class MakeFixture)
-import Simple.JSON (class ReadForeign, class WriteForeign)"#;
+import Simple.JSON (class ReadForeign, class WriteForeign)
+import Class.EncodeOa (class EncodeOa)
+import Class.DecodeOa (class DecodeOa)"#;
 
 pub fn enum_body(name: &str, values: &Vec<String>, original_values: &Vec<String>) -> String {
     let mut instances = String::new();
@@ -186,6 +189,16 @@ all{name} =
 
     instances.push_str(&format!(
         "\n\ninstance EncodeHasura {name} where\n  encodeHasura = show >>> encodeJson",
+    ));
+
+    instances.push_str(&format!(
+        "\n\ninstance DecodeOa {name} where
+    decodeOa = decode"
+    ));
+
+    instances.push_str(&format!(
+        "\n\ninstance EncodeOa {name} where
+    encodeOa = encode"
     ));
 
     instances.push_str(&format!(

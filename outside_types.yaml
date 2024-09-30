@@ -216,7 +216,6 @@ outside_types:
     with: common
     id: id=EventId
     timezone: dataType=EventTimezone
-    secure_program_allowed_delegate_status: DelegateStatuses, GqlOverrides.DelegateStatus, oa-override-gql
   events_permissions:
     with: common
   event_payments:

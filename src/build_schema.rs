@@ -355,23 +355,26 @@ fn return_type_wrapper(
     wrapping: &FieldWrapping,
     mut imports: &mut Vec<PurescriptImport>,
 ) -> Argument {
-    let mut nullable = true;
-    let mut array = false;
-    for wrapper in wrapping.into_iter() {
+    let mut last_was_non_null = false;
+    let wrapping: Vec<WrappingType> = wrapping.into_iter().collect();
+    for wrapper in wrapping.iter().rev() {
         match wrapper {
             WrappingType::NonNull => {
-                nullable = false;
+                last_was_non_null = true;
             }
             WrappingType::List => {
-                array = true;
+                if !last_was_non_null {
+                    add_import("maybe", "Data.Maybe", "Maybe", &mut imports);
+                    return_type = Argument::new_type("Maybe").with_argument(return_type);
+                }
+                return_type = Argument::new_type("Array").with_argument(return_type);
+                last_was_non_null = false;
             }
         }
     }
-    if nullable {
+    if !last_was_non_null {
         add_import("maybe", "Data.Maybe", "Maybe", &mut imports);
         return_type = Argument::new_type("Maybe").with_argument(return_type);
-    } else if array {
-        return_type = Argument::new_type("Array").with_argument(return_type);
     }
 
     return_type

@@ -31,9 +31,14 @@ pub fn print_module(
     let imports = PurescriptImport::merge(&imports)
         .iter_mut()
         .map(|i| {
-            if i.module == "GraphQL.Hasura.ComparisonExp" {
+            if i.module == "GraphQL.Hasura.ComparisonExp" || i.module == "Data.ComparisonExpString"
+            {
                 i.specified = vec![];
-                i.add_specified_mut("ComparisonExp");
+                i.add_specified_mut(if i.module == "GraphQL.Hasura.ComparisonExp" {
+                    "ComparisonExp"
+                } else {
+                    "ComparisonExpString"
+                });
             }
             i.to_string()
         })

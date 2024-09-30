@@ -43,7 +43,8 @@ outside_types:
     id: drId=DrInvoiceQuestionId
   InvoiceQuestion:
     id: drId=DrInvoiceQuestionId
-  DrRefundPlanResponse: StripeRefundError, GqlOverrides.StripeRefundError, oa-override-gql
+  DrRefundPlanResponse:
+    error: StripeRefundError, GqlOverrides.StripeRefundError, oa-override-gql
   DrRegisterAddonsInput:
     order_id: drId=DrOrderId
     coupon: drId=DrCouponId
@@ -155,6 +156,8 @@ outside_types:
   dr_register: # untyped arguments to actions need to be defined separately under the action name
     order_id: drId=DrOrderId
     coupon_id: drId=DrCouponId
+  events_upgrade_package:
+    new_package: PricePackage, OaEnumsPostgres.PricePackage, oa-enums-postgres
   DrRegisterInput:
     order_id: drId=DrOrderId
     coupon_id: drId=DrCouponId

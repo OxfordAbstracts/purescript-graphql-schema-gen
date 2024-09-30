@@ -102,6 +102,14 @@ fn enum_instances(name: &str, values: &Vec<String>, original_values: &Vec<String
         "\n\ninstance EncodeHasura {name} where\n  encodeHasura = encodeJson"
     ));
     instances.push_str(&format!(
+        "\n\ninstance DecodeOa {name} where
+    decodeOa = FC.decode"
+    ));
+    instances.push_str(&format!(
+        "\n\ninstance EncodeOa {name} where
+    encodeOa = FC.encode"
+    ));
+    instances.push_str(&format!(
         "\n\ninstance Show {name} where\n  show a = case a of\n    {}",
         values
             .iter()
@@ -182,6 +190,7 @@ fn enums_spago_yaml() -> String {
     - simple-json
     - transformers
     - oa-make-fixture
+    - oa-encode-decode
 "#
     .to_string()
 }
@@ -203,4 +212,6 @@ import Foreign as F
 import Data.Argonaut.Decode as D
 import Control.Monad.Except (except)
 import Data.Bifunctor (lmap)
-import Foreign.Class as FC"#;
+import Foreign.Class as FC
+import Class.EncodeOa (class EncodeOa)
+import Class.DecodeOa (class DecodeOa)"#;

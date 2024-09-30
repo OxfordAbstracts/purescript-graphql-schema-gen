@@ -38,7 +38,7 @@ fn outside_type(
 ) -> (Option<(String, String)>, String) {
     let is_comparison_fn = name.ends_with("_comparison_exp");
 
-    let new_object;
+    let mut new_object;
     // TODO - THIS IS SLOOOOW: should check for exact matches first
     // then process comparison expressions after
     match MODULE_SUFFIXES.iter().find(|s| object.ends_with(**s)) {
@@ -47,18 +47,36 @@ fn outside_type(
         }
         Some(suffix) => {
             new_object = object.strip_suffix(suffix).unwrap();
+            for prefix in MODULE_PREFIXES.iter() {
+                if new_object.starts_with(prefix) {
+                    new_object = new_object.strip_prefix(prefix).unwrap(); // TODO This needs to happen separately. Still needs to be run even without a suffix
+                }
+            }
         }
     }
 
     if let Some((package, import, type_)) = get_outside_type(new_object, field, outside_types) {
         if is_comparison_fn {
-            return (
-                Some((
-                    "graphql-client".to_string(),
-                    "GraphQL.Hasura.ComparisonExp".to_string(), // There's a special case in print_module to remove the exports from this module
-                )),
-                format!("(ComparisonExp {type_})"),
-            );
+            match name {
+                "String_comparison_exp" => {
+                    return (
+                        Some((
+                            "oa-ids".to_string(), // TODO this isn't in graphql-client but should be
+                            "Data.ComparisonExpString".to_string(), // There's a special case in print_module to remove the exports from this module
+                        )),
+                        format!("(ComparisonExpString {type_})"),
+                    );
+                }
+                _ => {
+                    return (
+                        Some((
+                            "graphql-client".to_string(),
+                            "GraphQL.Hasura.ComparisonExp".to_string(), // There's a special case in print_module to remove the exports from this module
+                        )),
+                        format!("(ComparisonExp {type_})"),
+                    );
+                }
+            }
         }
         (Some((package, import)), type_)
     } else if let Some((package, import, type_)) = purs_types.lock().unwrap().get(name) {
@@ -77,6 +95,8 @@ const MODULE_SUFFIXES: [&str; 7] = [
     "_pk_columns_input",
     "_bool_exp",
 ];
+
+const MODULE_PREFIXES: [&str; 2] = ["delete_", "update_"];
 
 fn get_outside_type(
     object: &str,

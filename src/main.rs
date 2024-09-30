@@ -16,6 +16,7 @@ mod build_schema;
 mod config;
 mod enums;
 mod hasura_types;
+mod main_check_needs_migrations;
 mod purescript_gen;
 mod write;
 

@@ -36,6 +36,8 @@ pub async fn build_schema(
 ) -> Result<()> {
     // Fetch the introspection schema
     let graphql_url = std::env::var("GRAPHQL_URL").expect("GRAPHQL_URL must be set");
+    let hasura_url = std::env::var("HASURA_URL");
+    let graphql_url = hasura_url.unwrap_or(graphql_url);
     let graphql_secret = std::env::var("GRAPHQL_SECRET").expect("GRAPHQL_SECRET must be set");
     let introspection_data = reqwest::Client::new()
         .post(graphql_url)

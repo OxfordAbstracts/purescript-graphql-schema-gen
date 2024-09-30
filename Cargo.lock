@@ -1551,6 +1551,7 @@ dependencies = [
  "hashlink 0.8.4",
  "phf",
  "reqwest",
+ "serde_json",
  "sqlx",
  "stringcase",
  "tokio",

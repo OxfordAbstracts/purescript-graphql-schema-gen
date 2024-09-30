@@ -24,11 +24,10 @@ pub async fn fetch_types(
         .expect("Failed to create pool");
 
     let res: Vec<EnumType> = sqlx::query_as::<_, EnumType>(
-        r#"SELECT pg_type.typname AS enumtype, array_agg(pg_enum.enumlabel) as enumlabel
+        r#"SELECT pg_type.typname AS enumtype, array_agg(pg_enum.enumlabel ORDER BY lower(pg_enum.enumlabel) ASC) as enumlabel
       FROM pg_type
       INNER JOIN pg_enum ON pg_enum.enumtypid = pg_type.oid
-      GROUP BY typname
-      ORDER BY 1 ASC;"#,
+      GROUP BY typname;"#,
     )
     .fetch_all(&pool)
     .await?;
@@ -85,7 +84,7 @@ fn enums_spago_yaml(name: &str) -> String {
     )
 }
 
-#[derive(sqlx::Type, sqlx::FromRow)]
+#[derive(sqlx::Type, sqlx::FromRow, Debug)]
 struct EnumType {
     enumtype: String,
     enumlabel: Option<Vec<String>>,

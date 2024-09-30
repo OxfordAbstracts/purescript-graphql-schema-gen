@@ -1,4 +1,4 @@
-# Config
+# Config for purescript-graphql-schema-gen
 
 ## Hasura roles
 

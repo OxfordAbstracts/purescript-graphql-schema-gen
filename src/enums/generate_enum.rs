@@ -90,7 +90,8 @@ fn enum_instances(name: &str, values: &Vec<String>, original_values: &Vec<String
     ));
     instances.push_str(&format!(
         "\n\ninstance DecodeJson {name} where\n  decodeJson = decodeJson >=> case _ of\n    {}\n    s -> Left $ TypeMismatch $ \"Not a {name}: \" <> s",
-        values.iter().map(|v| format!("\"{}\" -> pure {}", v, v)).collect::<Vec<String>>().join("\n    ")
+        values.iter().zip(original_values.iter())
+            .map(|(v, ov)| format!("\"{ov}\" -> pure {v}")).collect::<Vec<String>>().join("\n    ")
     ));
     instances.push_str(&format!(
         "\n\ninstance EncodeJson {name} where\n  encodeJson = show >>> encodeJson"

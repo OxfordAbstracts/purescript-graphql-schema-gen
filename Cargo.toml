@@ -1,6 +1,6 @@
 [package]
 name = "rust-purs-gql"
-version = "0.1.0"
+version = "0.1.3"
 edition = "2021"
 default-run = "pursgql"
 repository = "https://github.com/OxfordAbstracts/purescript-graphql-schema-gen"

@@ -1,4 +1,5 @@
 use std::{
+    fs::remove_dir_all,
     sync::{Arc, Mutex},
     thread::Result,
 };
@@ -29,6 +30,17 @@ async fn main() -> Result<()> {
 
     // Fetch the workspace config
     let workspace_config = parse_workspace().await?;
+
+    // Trash existing schema
+    for path in vec![
+        workspace_config.postgres_enums_dir.clone(),
+        workspace_config.shared_graphql_enums_dir.clone(),
+        workspace_config.schema_libs_dir.clone(),
+    ]
+    .iter()
+    {
+        remove_dir_all(path).ok();
+    }
 
     // Generate postgres enum types
     let postgres_types = fetch_types(&workspace_config)

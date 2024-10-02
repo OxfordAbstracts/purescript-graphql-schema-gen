@@ -20,8 +20,8 @@ async fn main() -> Result<()> {
     .fetch_one(&pool)
     .await?;
 
-    let test_db = std::env::var("TEST_DATABASE_URL")
-        .expect("TEST_DATABASE_URL must be set so we can use it as a codegen base.");
+    let test_db = std::env::var("CODEGEN_DATABASE_URL")
+        .expect("CODEGEN_DATABASE_URL must be set so we can use it as a codegen base.");
     let hasura_migrations_dir =
         std::env::var("HASURA_MIGRATIONS_DIR").expect("HASURA_MIGRATIONS_DIR must be set.");
     let test_pool = PgPoolOptions::new()

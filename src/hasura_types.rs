@@ -46,10 +46,14 @@ fn outside_type(
             new_object = object;
         }
         Some(suffix) => {
-            new_object = object.strip_suffix(suffix).unwrap();
+            new_object = object
+                .strip_suffix(suffix)
+                .expect("Failed to strip suffix that was found.");
             for prefix in MODULE_PREFIXES.iter() {
                 if new_object.starts_with(prefix) {
-                    new_object = new_object.strip_prefix(prefix).unwrap(); // TODO This needs to happen separately. Still needs to be run even without a suffix
+                    new_object = new_object
+                        .strip_prefix(prefix)
+                        .expect("Failed to strip prefix that was found."); // TODO This needs to happen separately. Still needs to be run even without a suffix
                 }
             }
         }

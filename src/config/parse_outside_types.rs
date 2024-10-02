@@ -179,7 +179,7 @@ fn to_type_value(type_value: &String, types_fn: &impl Fn(&str, &str) -> Option<M
                 .last()
                 .expect(&format!("No type value found after '=' for: {type_value}.")),
         )
-        .unwrap_or_else(|| panic!("Type not found: {}", type_value))
+        .expect(&format!("Type not found: {}", type_value))
     } else if type_value.contains(", ") {
         let mut values = type_value.split(", ");
         let name = values

@@ -39,10 +39,15 @@ async fn main() -> Result<()> {
     let migrations: Value = serde_json::from_str(&standard_result.migrations).expect(
         "Failed to parse hasura migrations json. Perhaps your Hasura version is mismatched.",
     );
-    let test_migrations: Value = serde_json::from_str(&test_result.migrations).unwrap();
+    let test_migrations: Value = serde_json::from_str(&test_result.migrations)
+        .expect("Failed to parse test migrations json.");
 
-    let migrations_obj = migrations.as_object().unwrap();
-    let test_migrations_obj = test_migrations.as_object().unwrap();
+    let migrations_obj = migrations
+        .as_object()
+        .expect("Failed to parse hasura migrations as an object.");
+    let test_migrations_obj = test_migrations
+        .as_object()
+        .expect("Failed to parse test migrations as an object.");
 
     for (k, _) in test_migrations_obj.iter() {
         if !migrations_obj.contains_key(k) {

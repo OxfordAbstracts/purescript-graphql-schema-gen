@@ -79,7 +79,11 @@ fn outside_type(
             }
         }
         (Some((package, import)), type_)
-    } else if let Some((package, import, type_)) = purs_types.lock().unwrap().get(name) {
+    } else if let Some((package, import, type_)) = purs_types
+        .lock()
+        .expect("Failed to lock purs type to thread.")
+        .get(name)
+    {
         (Some((package.clone(), import.clone())), type_.clone())
     } else {
         (None, base_types(name).to_string())
@@ -105,7 +109,7 @@ fn get_outside_type(
 ) -> Option<(String, String, String)> {
     outside_types
         .lock()
-        .unwrap()
+        .expect("Failed to lock outside types to thread.")
         .get(object)
         .map(|table| table.get(field))
         .flatten()

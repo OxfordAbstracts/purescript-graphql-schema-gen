@@ -16,7 +16,8 @@ pub async fn fetch_types(
     if db_env.is_err() {
         return Ok(HashMap::new());
     }
-    let database_url = db_env.unwrap();
+    let database_url =
+        db_env.expect("DATABASE_URL should not be required but for some reason is...");
     let pool = PgPoolOptions::new()
         .max_connections(1)
         .connect(&database_url)
@@ -162,8 +163,12 @@ all{name} =
 
     instances.push_str(&format!(
         "\n\ninstance Bounded {name} where\n  top = {}\n  bottom = {}",
-        values.last().unwrap(),
-        values.first().unwrap()
+        values
+            .last()
+            .expect("Postgres enum should have at least one value to get last."),
+        values
+            .first()
+            .expect("Postgres enum should have at least one value to get first.")
     ));
 
     instances.push_str(&format!(
@@ -227,7 +232,9 @@ all{name} =
     instances.push_str(&format!(
         "\n\ninstance MakeFixture {} where\n  mkFixture = {}",
         name,
-        values.first().unwrap()
+        values
+            .first()
+            .expect("Postgres enum should have at least one value to get first.")
     ));
 
     instances

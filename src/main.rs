@@ -31,7 +31,9 @@ async fn main() -> Result<()> {
     let workspace_config = parse_workspace().await?;
 
     // Generate postgres enum types
-    let postgres_types = fetch_types(&workspace_config).await.unwrap();
+    let postgres_types = fetch_types(&workspace_config)
+        .await
+        .expect("Failed to generate postgres enum types.");
     let num_types = postgres_types.len();
 
     println!(
@@ -66,7 +68,11 @@ async fn main() -> Result<()> {
     // Join the results
     let mut outputs = Vec::with_capacity(tasks.len());
     for task in tasks {
-        outputs.push(task.await.unwrap().unwrap());
+        outputs.push(
+            task.await
+                .expect("Failed to build schema gen task output")
+                .expect("Failed to join schema gen task output"),
+        );
     }
 
     println!(

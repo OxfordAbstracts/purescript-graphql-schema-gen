@@ -7,7 +7,7 @@ use sqlx::{postgres::PgPoolOptions, Result};
 #[tokio::main]
 async fn main() -> Result<()> {
     dotenv().ok();
-    let db_env = std::env::var("DATABASE_URL").unwrap();
+    let db_env = std::env::var("DATABASE_URL").expect("DATABASE_URL var must be set.");
     let pool = PgPoolOptions::new()
         .max_connections(1)
         .connect(&db_env)
@@ -20,8 +20,10 @@ async fn main() -> Result<()> {
     .fetch_one(&pool)
     .await?;
 
-    let test_db = std::env::var("TEST_DATABASE_URL").unwrap();
-    let hasura_migrations_dir = std::env::var("HASURA_MIGRATIONS_DIR").unwrap();
+    let test_db = std::env::var("TEST_DATABASE_URL")
+        .expect("TEST_DATABASE_URL must be set so we can use it as a codegen base.");
+    let hasura_migrations_dir =
+        std::env::var("HASURA_MIGRATIONS_DIR").expect("HASURA_MIGRATIONS_DIR must be set.");
     let test_pool = PgPoolOptions::new()
         .max_connections(1)
         .connect(&test_db)
@@ -34,7 +36,9 @@ async fn main() -> Result<()> {
         .fetch_one(&test_pool)
         .await?;
 
-    let migrations: Value = serde_json::from_str(&standard_result.migrations).unwrap();
+    let migrations: Value = serde_json::from_str(&standard_result.migrations).expect(
+        "Failed to parse hasura migrations json. Perhaps your Hasura version is mismatched.",
+    );
     let test_migrations: Value = serde_json::from_str(&test_result.migrations).unwrap();
 
     let migrations_obj = migrations.as_object().unwrap();
@@ -53,21 +57,34 @@ async fn main() -> Result<()> {
         }
     }
 
-    let last_test = test_migrations_obj.iter().last().unwrap().0.clone();
-    let last = migrations_obj.iter().last().unwrap().0.clone();
+    let last_test = test_migrations_obj
+        .iter()
+        .last()
+        .expect("Must have at least one migration in test database.") // TODO make this optional?
+        .0
+        .clone();
+    let last = migrations_obj
+        .iter()
+        .last()
+        .expect("Must have at least one migration in your database.") // TODO again, make this optional?
+        .0
+        .clone();
 
     let mut time_stamps = vec![];
-    let files = fs::read_dir(hasura_migrations_dir).unwrap();
+    let files =
+        fs::read_dir(hasura_migrations_dir).expect("The chosen Hasura directory must exist.");
     for entry in files {
-        let path = entry.unwrap().path();
+        let path = entry
+            .expect("Failed to parse path in Hasura directory.")
+            .path();
         let timestamp = path
             .file_name()
-            .unwrap()
+            .expect("Failed to parse file name in Hasura dir.")
             .to_str()
-            .unwrap()
+            .expect("Failed to convert file name to string in Hasura dir.")
             .split("_")
             .next()
-            .unwrap();
+            .expect("Failed to split timestamp out of file name in Hasura migrations dir.");
         time_stamps.push(timestamp.to_string());
     }
     time_stamps.sort();

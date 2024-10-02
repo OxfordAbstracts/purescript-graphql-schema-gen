@@ -28,7 +28,13 @@ impl Field {
     }
     pub fn show_field(&self) -> String {
         // if first character is uppercase, wrap in quotes
-        if self.name.chars().next().unwrap().is_uppercase() {
+        if self
+            .name
+            .chars()
+            .next()
+            .expect("Field should not be an empty string.")
+            .is_uppercase()
+        {
             format!("\"{}\"", self.name)
         } else {
             self.name.clone()

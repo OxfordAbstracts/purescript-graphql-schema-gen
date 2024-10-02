@@ -21,7 +21,14 @@ pub async fn generate_enum(
 
     // Empty enums in Hasura are represented as a single value with the name "_PLACEHOLDER"
     // purescript enums cannot start with an underscore, so we need to replace it with a different placeholder
-    let values = if en.values.iter().next().unwrap().name == "_PLACEHOLDER" {
+    let values = if en
+        .values
+        .iter()
+        .next()
+        .expect("Enums should have at least one value.")
+        .name
+        == "_PLACEHOLDER"
+    {
         vec!["ENUM_PLACEHOLDER".to_string()]
     } else {
         en.values.iter().map(|v| first_upper(&v.name)).collect()
@@ -150,8 +157,12 @@ fn enum_instances(name: &str, values: &Vec<String>, original_values: &Vec<String
 
     instances.push_str(&format!(
         "\n\ninstance Bounded {name} where\n  top = {}\n  bottom = {}",
-        values.last().unwrap(),
-        values.first().unwrap()
+        values
+            .last()
+            .expect("Enums should have at least one value in order to get last."),
+        values
+            .first()
+            .expect("Enums should have at least one value in order to get first.")
     ));
 
     instances.push_str(&format!(

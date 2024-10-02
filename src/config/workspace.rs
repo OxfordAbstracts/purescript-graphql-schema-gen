@@ -8,12 +8,17 @@ use yaml_rust2::{yaml, Yaml};
 pub async fn parse_workspace() -> Result<WorkspaceConfig> {
     let file_path: String = std::env::var("SPAGO_WORKSPACE_CONFIG_YAML")
         .expect("SPAGO_WORKSPACE_CONFIG_YAML must be set");
-    let mut f = File::open(file_path).await.unwrap();
+    let mut f = File::open(file_path)
+        .await
+        .expect("Failed to locate or open spago workspace config yaml.");
     let mut s = String::new();
 
-    f.read_to_string(&mut s).await.unwrap();
+    f.read_to_string(&mut s)
+        .await
+        .expect("Failed to read spago workspace config yaml file to string.");
 
-    let docs = yaml::YamlLoader::load_from_str(&s).unwrap();
+    let docs =
+        yaml::YamlLoader::load_from_str(&s).expect("Failed to parse workspace YAML as YAML.");
 
     if let Yaml::Hash(hash) = &docs[0] {
         match WorkspaceConfig::new(hash) {
@@ -47,12 +52,30 @@ impl WorkspaceConfig {
         let schema_libs_dir = yaml_hash.get(&Yaml::String("schema_libs_dir".to_string()))?;
 
         Some(Self {
-            postgres_enums_lib: postgres_enums_lib.as_str().unwrap().to_string(),
-            postgres_enums_dir: postgres_enums_dir.as_str().unwrap().to_string(),
-            shared_graphql_enums_lib: shared_graphql_enums_lib.as_str().unwrap().to_string(),
-            shared_graphql_enums_dir: shared_graphql_enums_dir.as_str().unwrap().to_string(),
-            schema_libs_prefix: schema_libs_prefix.as_str().unwrap().to_string(),
-            schema_libs_dir: schema_libs_dir.as_str().unwrap().to_string(),
+            postgres_enums_lib: postgres_enums_lib
+                .as_str()
+                .expect("Workspace yaml should contain postgres_enums_lib key.")
+                .to_string(),
+            postgres_enums_dir: postgres_enums_dir
+                .as_str()
+                .expect("Workspace yaml should contain postgres_enums_dir key.")
+                .to_string(),
+            shared_graphql_enums_lib: shared_graphql_enums_lib
+                .as_str()
+                .expect("Workspace yaml should contain shared_graphql_enums_lib key.")
+                .to_string(),
+            shared_graphql_enums_dir: shared_graphql_enums_dir
+                .as_str()
+                .expect("Workspace yaml should contain shared_graphql_enums_dir key.")
+                .to_string(),
+            schema_libs_prefix: schema_libs_prefix
+                .as_str()
+                .expect("Workspace yaml should contain schema_libs_prefix key.")
+                .to_string(),
+            schema_libs_dir: schema_libs_dir
+                .as_str()
+                .expect("Workspace yaml should contain schema_libs_dir key.")
+                .to_string(),
         })
     }
 }

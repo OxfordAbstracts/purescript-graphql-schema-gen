@@ -29,11 +29,14 @@ pub fn fetch_all_outside_types(workspace_config: &WorkspaceConfig) -> OutsideTyp
 }
 
 pub fn fetch_outside_types(location: &str, workspace_config: &WorkspaceConfig) -> OutsideTypes {
-    let mut f = File::open(location).unwrap();
+    let mut f =
+        File::open(location).expect(&format!("Outside types yaml file not found at {location}"));
     let mut s = String::new();
-    f.read_to_string(&mut s).unwrap();
+    f.read_to_string(&mut s)
+        .expect("Failed to read outside types file to string.");
 
-    let docs = yaml::YamlLoader::load_from_str(&s).unwrap();
+    let docs =
+        yaml::YamlLoader::load_from_str(&s).expect("Failed to parse outside types file as yaml.");
     if let Yaml::Hash(hash) = &docs[0] {
         let types = to_types(hash.get(&Yaml::String("types".to_string())));
         let templates: HashMap<String, Object> =
@@ -41,7 +44,7 @@ pub fn fetch_outside_types(location: &str, workspace_config: &WorkspaceConfig) -
 
         let outside_types = to_outside_types(
             hash.get(&Yaml::String("outside_types".to_string()))
-                .unwrap(),
+                .expect("Your outside types yaml should have a top level key 'outside_types'"),
             &types,
             &templates,
         );
@@ -80,14 +83,14 @@ fn to_types(yaml: Option<&Yaml>) -> impl Fn(&str, &str) -> Option<Mod> {
                     .split(", ")
                     .collect::<Vec<&str>>()
                     .get(1)
-                    .unwrap()
+                    .expect(&format!("No import found for type {name}"))
                     .replace("$", type_name),
                 name: type_name.to_string(),
                 package: import
                     .split(", ")
                     .collect::<Vec<&str>>()
                     .get(2)
-                    .unwrap()
+                    .expect(&format!("No package found for type {name}"))
                     .to_string(),
             }),
             None => None,
@@ -167,15 +170,27 @@ fn to_templates(
 fn to_type_value(type_value: &String, types_fn: &impl Fn(&str, &str) -> Option<Mod>) -> Mod {
     if type_value.contains('=') {
         types_fn(
-            type_value.split('=').next().unwrap(),
-            type_value.split('=').last().unwrap(),
+            type_value
+                .split('=')
+                .next()
+                .expect(&format!("No type name found before '=' for: {type_value}.")),
+            type_value
+                .split('=')
+                .last()
+                .expect(&format!("No type value found after '=' for: {type_value}.")),
         )
         .unwrap_or_else(|| panic!("Type not found: {}", type_value))
     } else if type_value.contains(", ") {
         let mut values = type_value.split(", ");
-        let name = values.next().unwrap();
-        let import = values.next().unwrap();
-        let package: &str = values.next().unwrap();
+        let name = values
+            .next()
+            .expect(&format!("No type name found for inline type {type_value}."));
+        let import = values.next().expect(&format!(
+            "No import found (second comma separated value) for inline type {type_value}."
+        ));
+        let package: &str = values.next().expect(&format!(
+            "No package found (third comma separated value) for inline type {type_value}."
+        ));
         Mod {
             import: import.to_string(),
             name: name.to_string(),

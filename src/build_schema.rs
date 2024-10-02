@@ -45,11 +45,13 @@ pub async fn build_schema(
         .header("x-hasura-role", &role)
         .run_graphql(IntrospectionQuery::build(()))
         .await
-        .unwrap()
+        .expect("Failed to fetch GraphQL introspection schema.")
         .data
-        .unwrap();
+        .expect("Failed to parse GraphQL introspection schema.");
 
-    let schema = introspection_data.into_schema().unwrap();
+    let schema = introspection_data
+        .into_schema()
+        .expect("Failed to convert introspection data.");
 
     // Create the purescript types;
     let mut records: Vec<PurescriptRecord> = vec![];

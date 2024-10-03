@@ -28,7 +28,7 @@ async fn main() -> Result<()> {
         .max_connections(1)
         .connect(&test_db)
         .await
-        .expect("Failed to create pool");
+        .expect("Failed to create codegen database pool");
 
     let test_result: Migrations = sqlx::query_as::<_, Migrations>(
             r#"SELECT (cli_state->'migrations'->'default')::text as migrations from hdb_catalog.hdb_version;"#,

@@ -1,6 +1,6 @@
 [package]
 name = "rust-purs-gql"
-version = "0.1.9"
+version = "0.1.10"
 edition = "2021"
 default-run = "pursgql"
 repository = "https://github.com/OxfordAbstracts/purescript-graphql-schema-gen"
@@ -43,7 +43,7 @@ ci = "github"
 # The installers to generate for each app
 installers = ["npm"]
 # Target platforms to build apps for (Rust target-triple syntax)
-targets = ["aarch64-apple-darwin", "x86_64-unknown-linux-gnu"]
+targets = ["aarch64-apple-darwin", "x86_64-apple-darwin", "x86_64-unknown-linux-gnu"]
 # The archive format to use for windows builds (defaults .zip)
 windows-archive = ".tar.gz"
 # The archive format to use for non-windows builds (defaults .tar.xz)

@@ -12,7 +12,7 @@ async fn main() -> Result<()> {
         .max_connections(1)
         .connect(&db_env)
         .await
-        .expect("Failed to create pool");
+        .expect("Failed to create pool for primary local database.");
 
     let standard_result: Migrations = sqlx::query_as::<_, Migrations>(
         r#"SELECT (cli_state->'migrations'->'default')::text as migrations from hdb_catalog.hdb_version;"#,

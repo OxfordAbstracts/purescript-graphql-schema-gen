@@ -51,7 +51,7 @@ impl WorkspaceConfig {
             yaml_hash.get(&Yaml::String("shared_graphql_enums_dir".to_string()))?;
         let schema_libs_prefix = yaml_hash.get(&Yaml::String("schema_libs_prefix".to_string()))?;
         let schema_libs_dir = yaml_hash.get(&Yaml::String("schema_libs_dir".to_string()))?;
-        let variant_enums = yaml_hash.get(&Yaml::String("variant_enums".to_string()))?;
+        let variant_enums = yaml_hash.get(&Yaml::String("variant_enums".to_string()));
         Some(Self {
             postgres_enums_lib: postgres_enums_lib
                 .as_str()
@@ -78,6 +78,7 @@ impl WorkspaceConfig {
                 .expect("Workspace yaml should contain schema_libs_dir key.")
                 .to_string(),
             variant_enums: variant_enums
+                .unwrap_or(&Yaml::Array(vec![]))
                 .as_vec()
                 .unwrap_or(&vec![])
                 .iter()

@@ -1,5 +1,5 @@
 use cynic_introspection::EnumType;
-use stringcase::pascal_case;
+use stringcase::{camel_case, pascal_case};
 
 use crate::config::workspace::WorkspaceConfig;
 use crate::purescript_gen::purescript_enum::Enum;
@@ -50,11 +50,19 @@ pub async fn generate_enum(
                 &workspace_config.shared_graphql_enums_lib
             );
             let package_name = pascal_case(&workspace_config.shared_graphql_enums_lib);
-
-            if let Some(variant) = variant_mod(&name, &original_values) {
+            let helper_module = format!("{package_name}.Utils.VariantHelpers");
+            if let Some(variant) = variant_mod(
+                &name,
+                &original_values,
+                &format!("\nimport {helper_module} (var, match)"),
+            ) {
                 write(
                     &format!("{lib_path}/src/{package_name}/{name}.purs"),
                     &variant,
+                );
+                write(
+                    &format!("{lib_path}/src/{package_name}/Utils/VariantHelpers.purs"),
+                    &format!("module {helper_module} where \n{VARIANT_HELPERS_MOD}"),
                 );
                 write(&format!("{lib_path}/spago.yaml"), &enums_spago_yaml());
             }
@@ -214,75 +222,82 @@ fn enum_instances(name: &str, values: &Vec<String>, original_values: &Vec<String
     instances
 }
 
-fn variant_mod(name: &str, original_values: &Vec<String>) -> Option<String> {
+fn variant_mod(name: &str, original_values: &Vec<String>, helper_import: &str) -> Option<String> {
     if original_values.len() == 0 {
         return None;
     }
 
     let values: Vec<String> = original_values.iter().map(|v| v.to_lowercase()).collect();
+    let zipped: Vec<(&String, &String)> = values.iter().zip(original_values.iter()).collect();
 
     let mut instances = String::new();
     let first_value = &values[0];
-    let last_value = values
-        .last()
-        .expect("Enums should have at least one value in order to get last.");
+    let first_fn = camel_case(&original_values[0]);
+    let last_fn = camel_case(
+        values
+            .last()
+            .expect("Enums should have at least one value in order to get last."),
+    );
 
     let mut variant = String::new();
     let mut variant_fns = String::new();
 
     // Define the type
     variant.push_str(&format!(
-        r#"
-type {name} = Variant"#
+        r#"newtype {name} = {name} {name}Variant
+
+type {name}Variant = Variant
+"#
     ));
 
-    for value in &values {
-        let variant_name = value.to_lowercase();
-        let variant_member = if value == first_value {
-            format!("  ( {variant_name}\n")
+    for (lower, original) in zipped {
+        let variant_member = if lower == first_value {
+            format!("  ( \"{original}\" :: Unit\n")
         } else {
-            format!("  , {variant_name}\n")
+            format!("  , \"{original}\" :: Unit\n")
         };
 
         // Add the variant member to the row
         variant.push_str(&variant_member);
 
         // Define the variant fn for easy calling
-        variant_fns.push_str(&to_variant(name, &variant_name));
+        variant_fns.push_str(&to_variant(name, &original));
     }
 
     // Add the variant type closing bracket
-    variant.push_str("\n  )");
+    variant.push_str("  )");
 
     // instances:
 
     // Next values in the enum
-    let succ_values = values
+    let succ_values = original_values
         .iter()
         .enumerate()
         .map(|(i, v)| {
             if i == values.len() - 1 {
-                format!("{} -> Nothing", v)
+                format!(r#"# match @"{v}" Nothing"#)
             } else {
-                format!("{} -> Just {}", v, values[i + 1])
+                let next_fn = camel_case(&values[i + 1]);
+                format!(r#"# match @"{v}" (Just {next_fn})"#)
             }
         })
         .collect::<Vec<String>>()
-        .join("\n    ");
+        .join("\n        ");
 
     // Previous values in the enum
-    let pred_values = values
+    let pred_values = original_values
         .iter()
         .enumerate()
         .map(|(i, v)| {
             if i == 0 {
-                format!("{} -> Nothing", v)
+                format!(r#"# match @"{v}" Nothing"#)
             } else {
-                format!("{} -> Just {}", v, values[i - 1])
+                let prev_fn = camel_case(&values[i - 1]);
+                format!(r#"# match @"{v}" (Just {prev_fn})"#)
             }
         })
         .collect::<Vec<String>>()
-        .join("\n    ");
+        .join("\n        ");
 
     // Cardinality of the enum
     let cardinality = values.len();
@@ -291,48 +306,36 @@ type {name} = Variant"#
     let to_enum = values
         .iter()
         .enumerate()
-        .map(|(i, v)| format!("{} -> Just {}", i, v))
+        .map(|(i, v)| format!("{i} -> Just {}", camel_case(v)))
         .collect::<Vec<String>>()
         .join("\n    ");
 
     // Convert an enum value to the corresponding index
-    let from_enum = values
+    let from_enum = original_values
         .iter()
         .enumerate()
-        .map(|(i, v)| format!("{} -> {}", v, i))
+        .map(|(i, v)| format!(r#"# match @"{v}" {i}"#))
         .collect::<Vec<String>>()
-        .join("\n    ");
+        .join("\n        ");
 
-    let decode_json = values
+    let decode_json = original_values
         .iter()
-        .zip(original_values.iter())
-        .map(|(v, original)| format!(r#""{original}" -> pure {v}"#))
-        .collect::<Vec<String>>()
-        .join("\n    ");
-
-    let encode_json = values
-        .iter()
-        .zip(original_values.iter())
-        .map(|(v, original)| format!(r#"on (Proxy @"{v}") (\_ -> show {original})"#))
+        .map(|original| {
+            let fn_name = camel_case(original);
+            format!(r#""{original}" -> pure {fn_name}"#)
+        })
         .collect::<Vec<String>>()
         .join("\n    ");
 
     instances.push_str(&format!(
         r#"
-
-instance DecodeJson {name} where
-  decodeJson = decodeJson >=> case _ of
-    {decode_json}
-    s -> Left $ TypeMismatch $ \"Not a {name}: \" <> s
-
-instance EncodeJson {name} where
-  encodeJson = case_
-   {encode_json}
-
-instance MakeFixture {name} where mkFixture = {first_value}
+derive instance Newtype {name} _
 
 instance Show {name} where
-  show a = unvariant q.data_type # \(Unvariant f) -> f \p _ -> reflectSymbol p
+  show = unwrap >>> unvariant >>> \(Unvariant f) -> f \p _ -> reflectSymbol p
+
+instance MakeFixture {name} where
+  mkFixture = {first_fn}
 
 instance Eq {name} where
   eq = eq `on` show
@@ -343,6 +346,14 @@ instance Ord {name} where
 instance GqlArgString {name} where
   toGqlArgStringImpl = show
 
+instance DecodeJson {name} where
+  decodeJson = decodeJson >=> case _ of
+    {decode_json}
+    s -> Left $ TypeMismatch $ "Not a {name}: " <> s
+
+instance EncodeJson {name} where
+  encodeJson = show >>> encodeJson
+
 instance DecodeHasura {name} where
   decodeHasura = decodeJson
 
@@ -350,33 +361,38 @@ instance EncodeHasura {name} where
   encodeHasura = encodeJson
 
 instance Enum {name} where
-  succ a = case a of
-    {succ_values}
-  pred a = case a of
-    {pred_values}
+  succ = unwrap >>>
+    ( case_
+        {succ_values}
+    )
+  pred = unwrap >>>
+    ( case_
+        {pred_values}
+    )
 
 instance Bounded {name} where
-  top = {last_value}
-  bottom = {first_value}
+  bottom = {first_fn}
+  top = {last_fn}
 
 instance BoundedEnum {name} where
   cardinality = Cardinality {cardinality}
   toEnum a = case a of
     {to_enum}
     _ -> Nothing
-  fromEnum a = case a of
-    {from_enum}
+  fromEnum = unwrap >>>
+    ( case_
+        {from_enum}
+    )
 "#
     ));
 
-    Some(format!("module {name} where\n\n{VARIANT_MODULE_IMPORTS}\n\n{variant}\n\n{variant_fns}\n\n{instances}"))
+    Some(format!("module {name} where\n\n{VARIANT_MODULE_IMPORTS}{helper_import}\n\n{variant}\n\n{variant_fns}{instances}"))
 }
 
 fn to_variant(type_name: &str, name: &str) -> String {
+    let fn_name = camel_case(name);
     format!(
-        r#"
-var :: {type_name}
-var = inj (Proxy @"{name}") unit
+        r#"{fn_name} = var @"{name}" :: {type_name}
 "#
     )
 }
@@ -427,6 +443,66 @@ import Class.DecodeOa (class DecodeOa)"#;
 
 const VARIANT_MODULE_IMPORTS: &str = r#"import Prelude
 
-import Data.Variant (Unvariant(..), Variant, inj, unvariant)
+import Data.Argonaut.Decode (class DecodeJson, JsonDecodeError(..), decodeJson)
+import Data.Argonaut.Encode (class EncodeJson, encodeJson)
+import Data.Either (Either(..))
 import Data.Enum (class Enum, class BoundedEnum, Cardinality(..))
-import Proxy (Proxy(..))"#;
+import Data.Function (on)
+import Data.Maybe (Maybe(..))
+import Data.Newtype (class Newtype, unwrap)
+import Data.Symbol (reflectSymbol)
+import Data.Variant (Unvariant(..), Variant, case_, unvariant)
+import GraphQL.Client.ToGqlString (class GqlArgString)
+import GraphQL.Hasura.Decode (class DecodeHasura)
+import GraphQL.Hasura.Encode (class EncodeHasura)
+import OaMakeFixture (class MakeFixture)"#;
+
+const VARIANT_HELPERS_MOD: &str = r#"
+import Prelude
+
+import Data.Maybe (Maybe)
+import Data.Newtype (class Newtype, wrap, unwrap)
+import Data.Symbol (class IsSymbol)
+import Data.Variant (Variant, inj)
+import Data.Variant as V
+import Data.Variant.Internal (class VariantTags)
+import Prim.Row as R
+import Prim.RowList as RL
+import Type.Proxy (Proxy(..))
+
+var :: ∀ @sym r1 r2 t. R.Cons sym Unit r1 r2 ⇒ IsSymbol sym => Newtype t (Variant r2) => t
+var = wrap $ inj (Proxy @sym) unit
+
+match
+  :: ∀ @sym a r1 r2 b
+   . R.Cons sym a r1 r2
+  => IsSymbol sym
+  => b
+  → (Variant r1 → b)
+  → Variant r2
+  → b
+match b = V.on (Proxy @sym) (\_ -> b)
+
+-- | Expand a newtyped variant into a target newtyped variant.
+-- | Requires the input variant be a sub-variant of the target variant.
+expand
+  :: forall t1 t2 v1 r_ v2
+   . Newtype t1 (Variant v1)
+  => R.Union v1 r_ v2
+  => Newtype t2 (Variant v2)
+  => t1
+  -> t2
+expand = unwrap >>> V.expand >>> wrap
+
+-- | Contract one newtyped variant into another.
+-- | Will return Nothing if the variant is not a variant of the target type.
+contract
+  :: forall t1 v1 v2 t2 rl r_
+   . Newtype t1 (Variant v1)
+  => RL.RowToList v2 rl
+  => R.Union v2 r_ v1
+  => VariantTags rl
+  => Newtype t2 (Variant v2)
+  => t1
+  -> Maybe t2
+contract = unwrap >>> V.contract >>> map wrap"#;

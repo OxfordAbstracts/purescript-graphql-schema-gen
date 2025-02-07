@@ -50,12 +50,17 @@ pub async fn generate_enum(
                 &workspace_config.shared_graphql_enums_lib
             );
             let package_name = pascal_case(&workspace_config.shared_graphql_enums_lib);
+            let module_name = format!("{package_name}.{name}");
             let helper_module = format!("{package_name}.Utils.VariantHelpers");
             if let Some(variant) = variant_mod(
                 &name,
                 &original_values,
+                &module_name,
                 &format!("\nimport {helper_module} (var, match)"),
             ) {
+                imports
+                    .push(PurescriptImport::new(&module_name, "oa-gql-enums").add_specified(&name));
+
                 write(
                     &format!("{lib_path}/src/{package_name}/{name}.purs"),
                     &variant,
@@ -97,10 +102,7 @@ pub async fn generate_enum(
 }
 
 fn use_variant(name: &str, workspace_config: &WorkspaceConfig) -> bool {
-    workspace_config
-        .variant_enums
-        .iter()
-        .any(|suffix| name.ends_with(suffix))
+    workspace_config.variant_enums.iter().any(|e| name == e)
 }
 
 fn first_upper(s: &str) -> String {
@@ -222,7 +224,12 @@ fn enum_instances(name: &str, values: &Vec<String>, original_values: &Vec<String
     instances
 }
 
-fn variant_mod(name: &str, original_values: &Vec<String>, helper_import: &str) -> Option<String> {
+fn variant_mod(
+    name: &str,
+    original_values: &Vec<String>,
+    module_name: &str,
+    helper_import: &str,
+) -> Option<String> {
     if original_values.len() == 0 {
         return None;
     }
@@ -386,7 +393,7 @@ instance BoundedEnum {name} where
 "#
     ));
 
-    Some(format!("module {name} where\n\n{VARIANT_MODULE_IMPORTS}{helper_import}\n\n{variant}\n\n{variant_fns}{instances}"))
+    Some(format!("module {module_name} where\n\n{VARIANT_MODULE_IMPORTS}{helper_import}\n\n{variant}\n\n{variant_fns}{instances}"))
 }
 
 fn to_variant(type_name: &str, name: &str) -> String {

@@ -4,3 +4,6 @@ shared_graphql_enums_lib: oa-gql-enums
 shared_graphql_enums_dir: ../OxfordAbstracts/application/purs-projects/lib/generated-new/
 schema_libs_prefix: oa-gql-schema-
 schema_libs_dir: ../OxfordAbstracts/application/purs-projects/lib/generated-new/
+variant_enums:
+  - QuestionTypesEnum
+  - ReviewerRecruitmentQuestionTypesEnum

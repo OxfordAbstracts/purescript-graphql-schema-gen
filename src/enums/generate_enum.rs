@@ -37,33 +37,62 @@ pub async fn generate_enum(
     let name: String = pascal_case(&en.name);
 
     // Some enums are shared between all schemas
+    // Hasura suffixes 'Enum' to the end of custom enums created
+    // via a table with 'value' and 'comment' columns.
     if global_enum_suffixes
         .iter()
         .any(|suffix| name.ends_with(suffix))
     {
-        let e = Enum::new(&name).with_values(&values).to_string();
+        if use_variant(&name, &workspace_config) {
+            let lib_path = format!(
+                "{}{}",
+                &workspace_config.shared_graphql_enums_dir,
+                &workspace_config.shared_graphql_enums_lib
+            );
+            let package_name = pascal_case(&workspace_config.shared_graphql_enums_lib);
 
-        let instances = enum_instances(&name, &values, &original_values);
-        let package_name = pascal_case(&workspace_config.shared_graphql_enums_lib);
-        let module_name = format!("{package_name}.{name}");
-        imports.push(PurescriptImport::new(&module_name, "oa-gql-enums").add_specified(&name));
+            if let Some(variant) = variant_mod(&name, &original_values) {
+                write(
+                    &format!("{lib_path}/src/{package_name}/{name}.purs"),
+                    &variant,
+                );
+                write(&format!("{lib_path}/spago.yaml"), &enums_spago_yaml());
+            }
 
-        let lib_path = format!(
-            "{}{}",
-            &workspace_config.shared_graphql_enums_dir, &workspace_config.shared_graphql_enums_lib
-        );
-        write(
-            &format!("{lib_path}/src/{package_name}/{name}.purs"),
-            &format!(
-                "module {module_name} ({name}(..)) where\n\n{MODULE_IMPORTS}\n\n{e}{instances}"
-            ),
-        );
-        write(&format!("{lib_path}/spago.yaml"), &enums_spago_yaml());
-        None
+            None
+        } else {
+            let e = Enum::new(&name).with_values(&values).to_string();
+
+            let instances = enum_instances(&name, &values, &original_values);
+            let package_name = pascal_case(&workspace_config.shared_graphql_enums_lib);
+            let module_name = format!("{package_name}.{name}");
+            imports.push(PurescriptImport::new(&module_name, "oa-gql-enums").add_specified(&name));
+
+            let lib_path = format!(
+                "{}{}",
+                &workspace_config.shared_graphql_enums_dir,
+                &workspace_config.shared_graphql_enums_lib
+            );
+            write(
+                &format!("{lib_path}/src/{package_name}/{name}.purs"),
+                &format!(
+                    "module {module_name} ({name}(..)) where\n\n{MODULE_IMPORTS}\n\n{e}{instances}"
+                ),
+            );
+            write(&format!("{lib_path}/spago.yaml"), &enums_spago_yaml());
+            None
+        }
     // Otherwise write schema-specific variant enums
     } else {
         Some(Variant::new(&name).with_values(&original_values))
     }
+}
+
+fn use_variant(name: &str, workspace_config: &WorkspaceConfig) -> bool {
+    workspace_config
+        .variant_enums
+        .iter()
+        .any(|suffix| name.ends_with(suffix))
 }
 
 fn first_upper(s: &str) -> String {
@@ -185,6 +214,173 @@ fn enum_instances(name: &str, values: &Vec<String>, original_values: &Vec<String
     instances
 }
 
+fn variant_mod(name: &str, original_values: &Vec<String>) -> Option<String> {
+    if original_values.len() == 0 {
+        return None;
+    }
+
+    let values: Vec<String> = original_values.iter().map(|v| v.to_lowercase()).collect();
+
+    let mut instances = String::new();
+    let first_value = &values[0];
+    let last_value = values
+        .last()
+        .expect("Enums should have at least one value in order to get last.");
+
+    let mut variant = String::new();
+    let mut variant_fns = String::new();
+
+    // Define the type
+    variant.push_str(&format!(
+        r#"
+type {name} = Variant"#
+    ));
+
+    for value in &values {
+        let variant_name = value.to_lowercase();
+        let variant_member = if value == first_value {
+            format!("  ( {variant_name}\n")
+        } else {
+            format!("  , {variant_name}\n")
+        };
+
+        // Add the variant member to the row
+        variant.push_str(&variant_member);
+
+        // Define the variant fn for easy calling
+        variant_fns.push_str(&to_variant(name, &variant_name));
+    }
+
+    // Add the variant type closing bracket
+    variant.push_str("\n  )");
+
+    // instances:
+
+    // Next values in the enum
+    let succ_values = values
+        .iter()
+        .enumerate()
+        .map(|(i, v)| {
+            if i == values.len() - 1 {
+                format!("{} -> Nothing", v)
+            } else {
+                format!("{} -> Just {}", v, values[i + 1])
+            }
+        })
+        .collect::<Vec<String>>()
+        .join("\n    ");
+
+    // Previous values in the enum
+    let pred_values = values
+        .iter()
+        .enumerate()
+        .map(|(i, v)| {
+            if i == 0 {
+                format!("{} -> Nothing", v)
+            } else {
+                format!("{} -> Just {}", v, values[i - 1])
+            }
+        })
+        .collect::<Vec<String>>()
+        .join("\n    ");
+
+    // Cardinality of the enum
+    let cardinality = values.len();
+
+    // Convert an enum index to the corresponding value
+    let to_enum = values
+        .iter()
+        .enumerate()
+        .map(|(i, v)| format!("{} -> Just {}", i, v))
+        .collect::<Vec<String>>()
+        .join("\n    ");
+
+    // Convert an enum value to the corresponding index
+    let from_enum = values
+        .iter()
+        .enumerate()
+        .map(|(i, v)| format!("{} -> {}", v, i))
+        .collect::<Vec<String>>()
+        .join("\n    ");
+
+    let decode_json = values
+        .iter()
+        .zip(original_values.iter())
+        .map(|(v, original)| format!(r#""{original}" -> pure {v}"#))
+        .collect::<Vec<String>>()
+        .join("\n    ");
+
+    let encode_json = values
+        .iter()
+        .zip(original_values.iter())
+        .map(|(v, original)| format!(r#"on (Proxy @"{v}") (\_ -> show {original})"#))
+        .collect::<Vec<String>>()
+        .join("\n    ");
+
+    instances.push_str(&format!(
+        r#"
+
+instance DecodeJson {name} where
+  decodeJson = decodeJson >=> case _ of
+    {decode_json}
+    s -> Left $ TypeMismatch $ \"Not a {name}: \" <> s
+
+instance EncodeJson {name} where
+  encodeJson = case_
+   {encode_json}
+
+instance MakeFixture {name} where mkFixture = {first_value}
+
+instance Show {name} where
+  show a = unvariant q.data_type # \(Unvariant f) -> f \p _ -> reflectSymbol p
+
+instance Eq {name} where
+  eq = eq `on` show
+
+instance Ord {name} where
+  compare = compare `on` show
+
+instance GqlArgString {name} where
+  toGqlArgStringImpl = show
+
+instance DecodeHasura {name} where
+  decodeHasura = decodeJson
+
+instance EncodeHasura {name} where
+  encodeHasura = encodeJson
+
+instance Enum {name} where
+  succ a = case a of
+    {succ_values}
+  pred a = case a of
+    {pred_values}
+
+instance Bounded {name} where
+  top = {last_value}
+  bottom = {first_value}
+
+instance BoundedEnum {name} where
+  cardinality = Cardinality {cardinality}
+  toEnum a = case a of
+    {to_enum}
+    _ -> Nothing
+  fromEnum a = case a of
+    {from_enum}
+"#
+    ));
+
+    Some(format!("module {name} where\n\n{VARIANT_MODULE_IMPORTS}\n\n{variant}\n\n{variant_fns}\n\n{instances}"))
+}
+
+fn to_variant(type_name: &str, name: &str) -> String {
+    format!(
+        r#"
+var :: {type_name}
+var = inj (Proxy @"{name}") unit
+"#
+    )
+}
+
 fn enums_spago_yaml() -> String {
     r#"package:
   name: oa-gql-enums
@@ -201,6 +397,7 @@ fn enums_spago_yaml() -> String {
     - prelude
     - simple-json
     - transformers
+    - variant
     - oa-make-fixture
     - oa-encode-decode
 "#
@@ -227,3 +424,9 @@ import Data.Bifunctor (lmap)
 import Foreign.Class as FC
 import Class.EncodeOa (class EncodeOa)
 import Class.DecodeOa (class DecodeOa)"#;
+
+const VARIANT_MODULE_IMPORTS: &str = r#"import Prelude
+
+import Data.Variant (Unvariant(..), Variant, inj, unvariant)
+import Data.Enum (class Enum, class BoundedEnum, Cardinality(..))
+import Proxy (Proxy(..))"#;

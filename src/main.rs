@@ -34,14 +34,18 @@ async fn main() -> Result<()> {
     // Trash existing schema
     for path in vec![
         workspace_config.postgres_enums_dir.clone(),
-        workspace_config.shared_graphql_enums_dir.clone(),
-        workspace_config.schema_libs_dir.clone(),
+        Some(workspace_config.shared_graphql_enums_dir.clone()),
+        Some(workspace_config.schema_libs_dir.clone()),
     ]
     .iter()
     {
-        remove_dir_all(path).ok();
+      match path { 
+        Some(dir) => {
+            remove_dir_all(dir).ok();
+        }
+        None => (),
+      }
     }
-
     // Generate postgres enum types
     let postgres_types = fetch_types(&workspace_config)
         .await
@@ -69,6 +73,7 @@ async fn main() -> Result<()> {
 
     // Run schema gen for each role concurrently
     let mut tasks = Vec::with_capacity(num_roles);
+    println!("Generating schemas for roles: {:#?}", roles);
     for role in roles.iter() {
         tasks.push(spawn(build_schema(
             role.clone(),

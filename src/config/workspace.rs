@@ -8,9 +8,9 @@ use yaml_rust2::{yaml, Yaml};
 pub async fn parse_workspace() -> Result<WorkspaceConfig> {
     let file_path: String = std::env::var("SPAGO_WORKSPACE_CONFIG_YAML")
         .expect("SPAGO_WORKSPACE_CONFIG_YAML must be set");
-    let mut f = File::open(file_path)
+    let mut f = File::open(file_path.clone())
         .await
-        .expect("Failed to locate or open spago workspace config yaml.");
+        .expect(format!("Failed to locate or open spago workspace config yaml at: {}", file_path).as_str());
     let mut s = String::new();
 
     f.read_to_string(&mut s)
@@ -32,8 +32,8 @@ pub async fn parse_workspace() -> Result<WorkspaceConfig> {
 
 #[derive(Clone)]
 pub struct WorkspaceConfig {
-    pub postgres_enums_lib: String,
-    pub postgres_enums_dir: String,
+    pub postgres_enums_lib: Option<String>,
+    pub postgres_enums_dir: Option<String>,
     pub shared_graphql_enums_lib: String,
     pub shared_graphql_enums_dir: String,
     pub schema_libs_prefix: String,
@@ -55,12 +55,13 @@ impl WorkspaceConfig {
         Some(Self {
             postgres_enums_lib: postgres_enums_lib
                 .as_str()
-                .expect("Workspace yaml should contain postgres_enums_lib key.")
-                .to_string(),
+                .map(|s| s.to_string()),
             postgres_enums_dir: postgres_enums_dir
                 .as_str()
-                .expect("Workspace yaml should contain postgres_enums_dir key.")
-                .to_string(),
+                .map(|s| s.to_string()),
+
+                // .expect("Workspace yaml should contain postgres_enums_dir key.")
+                // .to_string(),
             shared_graphql_enums_lib: shared_graphql_enums_lib
                 .as_str()
                 .expect("Workspace yaml should contain shared_graphql_enums_lib key.")

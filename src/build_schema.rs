@@ -18,6 +18,7 @@ use crate::{
     hasura_types::as_gql_field,
     purescript_gen::{
         purescript_argument::Argument,
+        purescript_gql_union::GqlUnion,
         purescript_import::PurescriptImport,
         purescript_instance::{derive_new_type_instance, DeriveInstance},
         purescript_print_module::print_module,
@@ -58,6 +59,7 @@ pub async fn build_schema(
     let mut types: Vec<PurescriptType> = vec![];
     let mut imports: Vec<PurescriptImport> = vec![];
     let mut variants: Vec<Variant> = vec![];
+    let mut unions: Vec<GqlUnion> = vec![];
     let mut instances: Vec<DeriveInstance> = vec![];
 
     // Add the purescript GraphQL client imports that are always used,
@@ -131,12 +133,12 @@ pub async fn build_schema(
     for type_ in schema.types.iter() {
         match type_ {
             Type::Object(obj) => {
-                // There are a couple of `__` prefixed Hasura types that we can safely ignore
+                // There are a builting of `__` prefixed graphql types that we can safely ignore
                 if obj.name.starts_with("__") {
                     continue;
                 }
 
-                // Convert the hasura_type_name to a PurescriptTypeName
+                // Convert the gql_type_name to a PurescriptTypeName
                 let name = pascal_case(&obj.name);
 
                 // Creates a new record for the object
@@ -215,7 +217,7 @@ pub async fn build_schema(
                 }
             }
             Type::Enum(en) => {
-                // Ignore internal Hasura enums beginning with `__`
+                // Ignore internal graphql enums beginning with `__`
                 if en.name.starts_with("__") {
                     continue;
                 }
@@ -230,12 +232,12 @@ pub async fn build_schema(
                 }
             }
             Type::InputObject(obj) => {
-                // Ignore internal Hasura input objects beginning with `__`
+                // Ignore internal graphql input objects beginning with `__`
                 if obj.name.starts_with("__") {
                     continue;
                 }
 
-                // Convert the hasura_type_name to a PurescriptTypeName
+                // Convert the gql_type_name to a PurescriptTypeName
                 let name = pascal_case(&obj.name);
 
                 // Build a purescript record with all fields
@@ -271,9 +273,30 @@ pub async fn build_schema(
                 // Currently ignored as we don't have any in our schemas
                 println!("Interface: {name}");
             }
-            Type::Union(UnionType { name, .. }) => {
+            Type::Union(UnionType {
+                name,
+                description: _,
+                possible_types,
+                ..
+            }) => {
                 // Currently ignored as we don't have any in our schemas
-                println!("Union: {name}");
+                add_import(
+                    "graphql-client",
+                    "GraphQL.Client.Union",
+                    "GqlUnion",
+                    &mut imports,
+                );
+
+                let mut union = GqlUnion::new(&name);
+
+                union.with_values(
+                    &possible_types
+                        .iter()
+                        .map(|t| (t.clone(), pascal_case(&t)))
+                        .collect(),
+                );
+
+                unions.push(union);
             }
         }
     }
@@ -297,17 +320,18 @@ pub async fn build_schema(
 
     // Write the schema module to the file system
     let schema_module_path = format!("{lib_path}/src/Schema/{role}.purs");
-    write(
-        &schema_module_path,
-        &print_module(
-            &role,
-            &mut types,
-            &mut records,
-            &mut imports,
-            &mut variants,
-            &mut instances,
-        ),
+
+    let printed = print_module(
+        &role,
+        &mut types,
+        &mut records,
+        &mut imports,
+        &mut variants,
+        &mut unions,
+        &mut instances,
     );
+
+    write(&schema_module_path, &printed);
 
     // Write the directives module
     let path_clone = lib_path.clone();

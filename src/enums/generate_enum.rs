@@ -97,7 +97,7 @@ pub async fn generate_enum(
         }
     // Otherwise write schema-specific variant enums
     } else {
-        Some(Variant::new(&name).with_values(&original_values))
+        Some(Variant::new(&name).with_values(&original_values).clone())
     }
 }
 

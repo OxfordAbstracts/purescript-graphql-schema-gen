@@ -131,75 +131,75 @@ pub async fn build_schema(
 
     // Process the schema types
     for type_ in schema.types.iter() {
-        match type_ {
-            Type::Object(obj) => {
-                // There are a builting of `__` prefixed graphql types that we can safely ignore
-                if obj.name.starts_with("__") {
-                    continue;
-                }
+        let mut handle_obj = |obj: &cynic_introspection::ObjectType| {
+            // There are a builting of `__` prefixed graphql types that we can safely ignore
+            if obj.name.starts_with("__") {
+                return;
+            }
 
-                // Convert the gql_type_name to a PurescriptTypeName
-                let name = pascal_case(&obj.name);
+            // Convert the gql_type_name to a PurescriptTypeName
+            let name = pascal_case(&obj.name);
 
-                // Creates a new record for the object
-                let mut record = PurescriptRecord::new("Ignored");
+            // Creates a new record for the object
+            let mut record = PurescriptRecord::new("Ignored");
 
-                // Add type fields to the record
-                for field in obj.fields.iter() {
-                    // If the field has arguments then the purescript representation will be:
-                    // field_name :: { | Arguments } -> ReturnType
+            // Add type fields to the record
+            for field in obj.fields.iter() {
+                // If the field has arguments then the purescript representation will be:
+                // field_name :: { | Arguments } -> ReturnType
 
-                    // Build the arguments record:
-                    let mut args = PurescriptRecord::new("Arguments");
-                    for arg in &field.args {
-                        let arg_type = wrap_type(
-                            as_gql_field(
-                                &field.name,
-                                &arg.name,
-                                &arg.ty.name,
-                                &mut imports,
-                                &postgres_types,
-                                &outside_types,
-                            ),
-                            &arg.ty.wrapping,
-                            &mut imports,
-                        );
-                        let mut arg_field = Field::new(&arg.name);
-                        arg_field.type_name = arg_type;
-                        args.add_field(arg_field);
-                    }
-
-                    // Build the return type,
-                    // potentially wrapping values in Array or Maybe
-                    // and resolving any matched outside types
-                    let return_type = return_type_wrapper(
+                // Build the arguments record:
+                let mut args = PurescriptRecord::new("Arguments");
+                for arg in &field.args {
+                    let arg_type = wrap_type(
                         as_gql_field(
-                            &obj.name,
                             &field.name,
-                            &field.ty.name,
+                            &arg.name,
+                            &arg.ty.name,
                             &mut imports,
                             &postgres_types,
                             &outside_types,
                         ),
-                        &field.ty.wrapping,
+                        &arg.ty.wrapping,
                         &mut imports,
                     );
-
-                    // Add the function argument to the new record field
-                    // and add it to the object record
-                    let function_arg =
-                        Argument::new_function(vec![Argument::new_record(args)], return_type);
-                    let record_field = Field::new(&field.name).with_type_arg(function_arg);
-                    record.add_field(record_field);
+                    let mut arg_field = Field::new(&arg.name);
+                    arg_field.type_name = arg_type;
+                    args.add_field(arg_field);
                 }
 
-                // Create the newtype record for the object and append it to the schema module types
-                let mut query_type =
-                    PurescriptType::new(&name, vec![], Argument::new_record(record));
-                query_type.set_newtype(true);
-                instances.push(derive_new_type_instance(&query_type.name));
-                types.push(query_type);
+                // Build the return type,
+                // potentially wrapping values in Array or Maybe
+                // and resolving any matched outside types
+                let return_type = return_type_wrapper(
+                    as_gql_field(
+                        &obj.name,
+                        &field.name,
+                        &field.ty.name,
+                        &mut imports,
+                        &postgres_types,
+                        &outside_types,
+                    ),
+                    &field.ty.wrapping,
+                    &mut imports,
+                );
+
+                // Add the function argument to the new record field
+                // and add it to the object record
+                let function_arg =
+                    Argument::new_function(vec![Argument::new_record(args)], return_type);
+                let record_field = Field::new(&field.name).with_type_arg(function_arg);
+                record.add_field(record_field);
             }
+
+            // Create the newtype record for the object and append it to the schema module types
+            let mut query_type = PurescriptType::new(&name, vec![], Argument::new_record(record));
+            query_type.set_newtype(true);
+            instances.push(derive_new_type_instance(&query_type.name));
+            types.push(query_type);
+        };
+        match type_ {
+            Type::Object(obj) => handle_obj(obj),
             Type::Scalar(scalar) => {
                 // Add imports for common scalar types if they are used.
                 // TODO maybe move these to config so they can be updated outside of rust
@@ -269,9 +269,18 @@ pub async fn build_schema(
                 instances.push(derive_new_type_instance(&query_type.name));
                 types.push(query_type);
             }
-            Type::Interface(InterfaceType { name, .. }) => {
-                // Currently ignored as we don't have any in our schemas
-                println!("Interface: {name}");
+            Type::Interface(InterfaceType {
+                name,
+                fields,
+                description,
+                ..
+            }) => {
+                handle_obj(&cynic_introspection::ObjectType {
+                    name: name.clone(),
+                    fields: fields.clone(),
+                    description: description.clone(),
+                    interfaces: vec![],
+                });
             }
             Type::Union(UnionType {
                 name,

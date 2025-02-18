@@ -446,7 +446,7 @@ fn wrap_type(
 
 /// Format the schema directives into a separate module.
 /// TODO stop directives from being hardcoded string mods with bad imports just for our simple use...
-fn build_directives(lib_path: String, role: String, directives: Vec<Directive>) -> () {
+fn build_directives(lib_path: String, role: String, directives: Vec<Directive>) {
     let mut directive_mod = "".to_string();
     // Push the module header + types type + declaration to the directive module
     directive_mod.push_str(&format!(

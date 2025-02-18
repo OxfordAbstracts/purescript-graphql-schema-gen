@@ -1,6 +1,5 @@
 use std::{
     collections::HashMap,
-    fmt::format,
     sync::{Arc, Mutex},
     thread::Result,
 };
@@ -10,11 +9,14 @@ use cynic_introspection::{
     Directive, DirectiveLocation, FieldWrapping, InputValue, InterfaceType, IntrospectionQuery,
     Type, UnionType, WrappingType,
 };
-use stringcase::{kebab_case};
+use stringcase::{kebab_case, pascal_case};
 use tokio::task::spawn_blocking;
 
 use crate::{
-    config::{parse_outside_types::OutsideTypes, workspace::WorkspaceConfig},
+    config::{
+        parse_outside_types::{Mod, OutsideTypes}, parse_scalar_types::ScalarTypes,
+        workspace::WorkspaceConfig,
+    },
     enums::generate_enum::generate_enum,
     hasura_types::as_gql_field,
     purescript_gen::{
@@ -26,7 +28,6 @@ use crate::{
         purescript_record::{show_field_name, Field, PurescriptRecord},
         purescript_type::PurescriptType,
         purescript_variant::Variant,
-        upper_first::*,
     },
     write::write,
 };
@@ -35,6 +36,7 @@ pub async fn build_schema(
     role: String,
     postgres_types: Arc<Mutex<HashMap<String, (String, String, String)>>>,
     outside_types: Arc<Mutex<OutsideTypes>>,
+    scalar_types: Arc<Mutex<ScalarTypes>>,
     workspace_config: WorkspaceConfig,
 ) -> Result<()> {
     // Fetch the introspection schema
@@ -99,7 +101,7 @@ pub async fn build_schema(
     let query_type = PurescriptType::new(
         "Query",
         vec![],
-        Argument::new_type(&upper_first(schema.query_type.as_str())),
+        Argument::new_type(&pascal_case(schema.query_type.as_str())),
     );
     schema_record.add_field(Field::new("query").with_type(&query_type.name));
     types.push(query_type);
@@ -114,7 +116,7 @@ pub async fn build_schema(
         let mutation_type = PurescriptType::new(
             "Mutation",
             vec![],
-            Argument::new_type(&upper_first(&mut_type)),
+            Argument::new_type(&pascal_case(&mut_type)),
         );
         schema_record.add_field(Field::new("mutation").with_type(&mutation_type.name));
         types.push(mutation_type);
@@ -125,7 +127,7 @@ pub async fn build_schema(
         let mutation_type = PurescriptType::new(
             "Subscription",
             vec![],
-            Argument::new_type(&upper_first(&mut_type)),
+            Argument::new_type(&pascal_case(&mut_type)),
         );
         schema_record.add_field(Field::new("subscription").with_type(&mutation_type.name));
         types.push(mutation_type);
@@ -140,7 +142,7 @@ pub async fn build_schema(
             }
 
             // Convert the gql_type_name to a PurescriptTypeName
-            let name = upper_first(&obj.name);
+            let name = pascal_case(&obj.name);
 
             // Creates a new record for the object
             let mut record = PurescriptRecord::new("Ignored");
@@ -201,11 +203,12 @@ pub async fn build_schema(
             types.push(query_type);
         };
         match type_ {
-            Type::Object(obj) => handle_obj(obj),
+            Type::Object(obj) => handle_obj(&obj),
             Type::Scalar(scalar) => {
                 // Add imports for common scalar types if they are used.
                 // TODO maybe move these to config so they can be updated outside of rust
                 match scalar.name.as_str() {
+                    "ID" => add_import("graphql-client", "GraphQL.Client.ID", "ID", &mut imports),
                     _ if scalar.is_builtin() => {} // ignore built in types like String, Int, etc.
                     "date" => add_import("datetime", "Data.Date", "Date", &mut imports),
                     "timestamp" | "timestamptz" => {
@@ -215,8 +218,19 @@ pub async fn build_schema(
                         add_import("argonaut-core", "Data.Argonaut.Core", "Json", &mut imports)
                     }
                     "time" => add_import("datetime", "Data.Time", "Time", &mut imports),
-                    "ID" => add_import("graphql-client", "GraphQL.Client.ID", "ID", &mut imports),
-                    _ => {}
+                    scalar_name => {
+                      match scalar_types.lock().unwrap().get(scalar_name) {
+                        Some(Mod { package, import, name }) => {
+                          add_import(package, import, name, &mut imports);
+                          types.push(PurescriptType::new(scalar_name, vec![], Argument::new_type(name)));
+                        }
+                        None => {
+                          add_import("argonaut-core", "Data.Argonaut.Core", "Json", &mut imports);
+                          types.push(PurescriptType::new(scalar_name, vec![], Argument::new_type("Json")));
+
+                        }
+                      }
+                    }
                 }
             }
             Type::Enum(en) => {
@@ -241,7 +255,7 @@ pub async fn build_schema(
                 }
 
                 // Convert the gql_type_name to a PurescriptTypeName
-                let name = upper_first(&obj.name);
+                let name = pascal_case(&obj.name);
 
                 // Build a purescript record with all fields
                 let mut record = PurescriptRecord::new("Query");
@@ -304,7 +318,7 @@ pub async fn build_schema(
                 union.with_values(
                     &possible_types
                         .iter()
-                        .map(|t| (t.clone(), upper_first(&t)))
+                        .map(|t| (t.clone(), pascal_case(&t)))
                         .collect(),
                 );
 
@@ -467,13 +481,7 @@ fn directive_type_str(directive: &Directive) -> Option<String> {
         .map(input_value_type_str)
         .collect::<Vec<String>>()
         .join("\n    , ");
-    let locations = directive_locations_str(&directive.locations);
-
-    if locations.is_none() {
-       return None
-    }
-
-    let locations = locations.unwrap();
+    let locations = directive_locations_str(&directive.locations)?;
 
     Some(format!("( Directive \"{name}\" \n    \"{description}\" \n    {{ {args} }}  \n    {locations} \n  )"))
 }
@@ -542,7 +550,6 @@ fn build_directives(lib_path: String, role: String, directives: Vec<Directive>) 
         "module {role}.Directives where \n{DIRECTIVE_IMPORTS}\ntype Directives :: List' Type\n{directive_str}\n\n{directive_fns}"
     ));
 
-   
     write(
         &format!("{lib_path}/src/{role}/Directives.purs"),
         &directive_mod,

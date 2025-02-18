@@ -1,15 +1,12 @@
 use std::{
-    fs::remove_dir_all,
-    sync::{Arc, Mutex},
-    thread::Result,
+    collections::HashMap, fs::remove_dir_all, sync::{Arc, Mutex}, thread::Result
 };
 
 use build_schema::build_schema;
 use config::{
-    parse_outside_types::{fetch_all_outside_types, OutsideTypes},
-    parse_roles::parse_roles,
-    workspace::parse_workspace,
+    parse_outside_types::{fetch_all_outside_types, OutsideTypes}, parse_roles::parse_roles, parse_scalar_types::{fetch_all_scalar_types, ScalarTypes}, workspace::parse_workspace
 };
+use cynic_introspection::ScalarType;
 use dotenv::dotenv;
 use enums::postgres_types::fetch_types;
 use tokio::spawn;
@@ -63,6 +60,8 @@ async fn main() -> Result<()> {
     // Parse all outside type config
     let outside_types: OutsideTypes = fetch_all_outside_types(&workspace_config);
 
+    let scalar_types: ScalarTypes = fetch_all_scalar_types().unwrap_or(HashMap::new());
+
     // Fetch role config
     let roles: Vec<String> = parse_roles();
     let num_roles = roles.len();
@@ -70,6 +69,7 @@ async fn main() -> Result<()> {
     // Postgres types are shared between all roles
     let types_ = Arc::new(Mutex::new(postgres_types));
     let outside_types = Arc::new(Mutex::new(outside_types));
+    let scalar_types = Arc::new(Mutex::new(scalar_types));
 
     // Run schema gen for each role concurrently
     let mut tasks = Vec::with_capacity(num_roles);
@@ -79,6 +79,7 @@ async fn main() -> Result<()> {
             role.clone(),
             types_.clone(),
             outside_types.clone(),
+            scalar_types.clone(),
             workspace_config.clone(),
         )));
     }

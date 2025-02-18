@@ -23,6 +23,6 @@ impl GqlUnion {
         let values = self
             .row
             .to_string();
-        format!("type {} = GraphQL.Client.Union.GqlUnion\n  {values}", self.name)
+        format!("type {} = GqlUnion\n  {values}", self.name)
     }
 }

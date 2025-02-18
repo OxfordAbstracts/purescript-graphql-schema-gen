@@ -39,10 +39,8 @@ pub fn show_field_name(field_name: String) -> String {
         .expect("Field should not be an empty string.");
 
     if head.is_alphabetic() && head.is_lowercase() {
-        println!("head is safe: {}", head);
         field_name
     } else {
-        println!("head not safe: {}", head);
         format!("\"{}\"", field_name)
     }
 }

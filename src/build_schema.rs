@@ -1,13 +1,14 @@
 use std::{
     collections::HashMap,
+    fmt::format,
     sync::{Arc, Mutex},
     thread::Result,
 };
 
 use cynic::{http::ReqwestExt, QueryBuilder};
 use cynic_introspection::{
-    Directive, DirectiveLocation, FieldWrapping, InterfaceType, IntrospectionQuery, Type,
-    UnionType, WrappingType,
+    Directive, DirectiveLocation, FieldWrapping, InputValue, InterfaceType, IntrospectionQuery,
+    Type, UnionType, WrappingType,
 };
 use stringcase::{kebab_case, pascal_case};
 use tokio::task::spawn_blocking;
@@ -22,7 +23,7 @@ use crate::{
         purescript_import::PurescriptImport,
         purescript_instance::{derive_new_type_instance, DeriveInstance},
         purescript_print_module::print_module,
-        purescript_record::{Field, PurescriptRecord},
+        purescript_record::{show_field_name, Field, PurescriptRecord},
         purescript_type::PurescriptType,
         purescript_variant::Variant,
     },
@@ -444,96 +445,115 @@ fn wrap_type(
     argument
 }
 
-/// Format the schema directives into a separate module.
-/// TODO stop directives from being hardcoded string mods with bad imports just for our simple use...
-fn build_directives(lib_path: String, role: String, directives: Vec<Directive>) {
-    let mut directive_mod = "".to_string();
-    // Push the module header + types type + declaration to the directive module
-    directive_mod.push_str(&format!(
-        "module {role}.Directives where \n{DIRECTIVE_IMPORTS}"
-    ));
-
-    let mut directive_types = "".to_string();
-    let mut directive_functions = "".to_string();
-    for directive in directives {
-        let directive_name = directive.name;
-        let locations = &directive.locations;
-        let allowed_location = locations.iter().any(is_allowed_location);
-        if allowed_location {
-            let description = directive.description.clone().unwrap_or("\"\"".to_string());
-
-            // Give the Directives type a type
-            let type_type = "type Directives :: List' Type\n";
-            // Initialise the directive types argument with name and description (defaulted to "")
-            let mut directive_argument = Argument::new_type("Directive")
-                .with_argument(Argument::new_type(&format!(r#""{directive_name}""#)))
-                .with_argument(Argument::new_type(&format!(r#""{description}""#)));
-
-            // Build the arguments record
-            let mut directive_args_rec = PurescriptRecord::new("Arguments");
-            for arg in directive.args.iter() {
-                let arg_name = arg.name.clone();
-                // TODO use the shared mutable imports as a mutex rather than a placeholder
-                let arg_type = wrap_type(
-                    Argument::new_type(&arg.ty.name.clone()),
-                    &arg.ty.wrapping,
-                    &mut vec![],
-                );
-
-                directive_args_rec.add_field(Field::new(&arg_name).with_type_arg(arg_type));
-            }
-            directive_argument.add_argument(Argument::new_record(directive_args_rec));
-
-            // Add the locations to the directive type
-            // TODO Make this work for multiple locations. Ask Rory how this should work.
-            let locations_type = match locations[0] {
-                DirectiveLocation::Query => "QUERY",
-                DirectiveLocation::Mutation => "MUTATION",
-                DirectiveLocation::Subscription => "SUBSCRIPTION",
-                _ => "QUERY",
-            };
-            let locations_type_level_list =
-                Argument::new_type(&format!("({locations_type} :> Nil') :> Nil'"));
-            directive_argument.add_argument(locations_type_level_list);
-
-            // Define the directives type
-            let directive_type = PurescriptType::new("Directives", vec![], directive_argument);
-            directive_types.push_str(&type_type);
-            directive_types.push_str(&directive_type.to_string());
+fn wrap_type_str(mut str: String, wrapping: &FieldWrapping) -> String {
+    let wrapping: Vec<WrappingType> = wrapping.into_iter().collect();
+    for wrapper in wrapping.iter().rev() {
+        match wrapper {
+            WrappingType::NonNull => str = format!("NotNull {str}"),
+            WrappingType::List => str = format!("Array {str}"),
         }
-        // Add the apply directive function
-        let function = format!(
-            r#"
+    }
+    str
+}
+
+fn directive_type_str(directive: &Directive) -> Option<String> {
+    let name = &directive.name;
+    let description = directive.description.clone().unwrap_or("".to_string());
+    let args: String = directive
+        .args
+        .iter()
+        .map(input_value_type_str)
+        .collect::<Vec<String>>()
+        .join("\n    , ");
+    let locations = directive_locations_str(&directive.locations);
+
+    if locations.is_none() {
+       return None
+    }
+
+    let locations = locations.unwrap();
+
+    Some(format!("( Directive \"{name}\" \n    \"{description}\" \n    {{ {args} }}  \n    {locations} \n  )"))
+}
+
+fn directive_locations_str(locations: &Vec<DirectiveLocation>) -> Option<String> {
+    let locations_strs = locations
+        .iter()
+        .filter_map(directive_location_str)
+        .map(|s| format!("{s} :> "))
+        .collect::<Vec<_>>();
+
+    if locations_strs.len() == 0 {
+        return None;
+    }
+    let location_str = locations_strs.join("");
+
+    Some(format!("({location_str} Nil' )"))
+}
+
+fn directive_location_str(location: &DirectiveLocation) -> Option<&str> {
+    match location {
+        DirectiveLocation::Query => Some("QUERY"),
+        DirectiveLocation::Mutation => Some("MUTATION"),
+        DirectiveLocation::Subscription => Some("SUBSCRIPTION"),
+        _ => None,
+    }
+}
+
+fn input_value_type_str(value: &InputValue) -> String {
+    let name = show_field_name(value.name.clone());
+    let prop_value = wrap_type_str(value.ty.name.clone(), &value.ty.wrapping);
+    format!("\"{name}\" :: {prop_value}")
+}
+
+fn directive_fn(directive: &Directive) -> String {
+    let directive_name = &directive.name;
+    format!(
+        r#"
 {directive_name} :: forall q args. args -> q -> ApplyDirective "{directive_name}" args q
 {directive_name} = applyDir (Proxy :: _ "{directive_name}")
 "#
-        );
-        directive_functions.push_str(&function);
-    }
+    )
+}
 
-    directive_mod.push_str([directive_types, directive_functions].join("\n").trim());
+/// Format the schema directives into a separate module.
+/// TODO stop directives from being hardcoded string mods with bad imports just for our simple use...
+fn build_directives(lib_path: String, role: String, directives: Vec<Directive>) {
+    let directive_str: String = directives
+        .iter()
+        .filter_map(|directive| directive_type_str(&directive))
+        .map(|d| format!("{d}\n  :>\n"))
+        .collect::<Vec<String>>()
+        .join("");
 
+    let directive_str = format!("type Directives =\n {directive_str}\n  Nil'");
+
+    let directive_fns = directives
+        .iter()
+        .map(|directive| directive_fn(&directive))
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    let mut directive_mod = "".to_string();
+    // Push the module header + types type + declaration to the directive module
+    directive_mod.push_str(&format!(
+        "module {role}.Directives where \n{DIRECTIVE_IMPORTS}\ntype Directives :: List' Type\n{directive_str}\n\n{directive_fns}"
+    ));
+
+   
     write(
         &format!("{lib_path}/src/{role}/Directives.purs"),
         &directive_mod,
     );
 }
 
-fn is_allowed_location(location: &DirectiveLocation) -> bool {
-    ALLOWED_DIRECTIVE_LOCATIONS.contains(location)
-}
-
-static ALLOWED_DIRECTIVE_LOCATIONS: [DirectiveLocation; 3] = [
-    DirectiveLocation::Query,
-    DirectiveLocation::Mutation,
-    DirectiveLocation::Subscription,
-];
-
 const DIRECTIVE_IMPORTS: &str = r#"
+import Prelude
 import GraphQL.Client.Args (NotNull)
 import GraphQL.Client.Directive (ApplyDirective, applyDir)
 import GraphQL.Client.Directive.Definition (Directive)
-import GraphQL.Client.Directive.Location (QUERY)
+import GraphQL.Client.Directive.Location (MUTATION, QUERY, SUBSCRIPTION)
+import GraphQL.Client.Operation (OpMutation(..), OpQuery(..), OpSubscription(..))
 import Type.Data.List (type (:>), List', Nil')
 import Type.Proxy (Proxy(..))
 

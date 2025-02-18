@@ -10,7 +10,7 @@ use cynic_introspection::{
     Directive, DirectiveLocation, FieldWrapping, InputValue, InterfaceType, IntrospectionQuery,
     Type, UnionType, WrappingType,
 };
-use stringcase::{kebab_case, pascal_case};
+use stringcase::{kebab_case};
 use tokio::task::spawn_blocking;
 
 use crate::{
@@ -26,6 +26,7 @@ use crate::{
         purescript_record::{show_field_name, Field, PurescriptRecord},
         purescript_type::PurescriptType,
         purescript_variant::Variant,
+        upper_first::*,
     },
     write::write,
 };
@@ -98,7 +99,7 @@ pub async fn build_schema(
     let query_type = PurescriptType::new(
         "Query",
         vec![],
-        Argument::new_type(&pascal_case(schema.query_type.as_str())),
+        Argument::new_type(&upper_first(schema.query_type.as_str())),
     );
     schema_record.add_field(Field::new("query").with_type(&query_type.name));
     types.push(query_type);
@@ -113,7 +114,7 @@ pub async fn build_schema(
         let mutation_type = PurescriptType::new(
             "Mutation",
             vec![],
-            Argument::new_type(&pascal_case(&mut_type)),
+            Argument::new_type(&upper_first(&mut_type)),
         );
         schema_record.add_field(Field::new("mutation").with_type(&mutation_type.name));
         types.push(mutation_type);
@@ -124,7 +125,7 @@ pub async fn build_schema(
         let mutation_type = PurescriptType::new(
             "Subscription",
             vec![],
-            Argument::new_type(&pascal_case(&mut_type)),
+            Argument::new_type(&upper_first(&mut_type)),
         );
         schema_record.add_field(Field::new("subscription").with_type(&mutation_type.name));
         types.push(mutation_type);
@@ -139,7 +140,7 @@ pub async fn build_schema(
             }
 
             // Convert the gql_type_name to a PurescriptTypeName
-            let name = pascal_case(&obj.name);
+            let name = upper_first(&obj.name);
 
             // Creates a new record for the object
             let mut record = PurescriptRecord::new("Ignored");
@@ -214,6 +215,7 @@ pub async fn build_schema(
                         add_import("argonaut-core", "Data.Argonaut.Core", "Json", &mut imports)
                     }
                     "time" => add_import("datetime", "Data.Time", "Time", &mut imports),
+                    "ID" => add_import("graphql-client", "GraphQL.Client.ID", "ID", &mut imports),
                     _ => {}
                 }
             }
@@ -239,7 +241,7 @@ pub async fn build_schema(
                 }
 
                 // Convert the gql_type_name to a PurescriptTypeName
-                let name = pascal_case(&obj.name);
+                let name = upper_first(&obj.name);
 
                 // Build a purescript record with all fields
                 let mut record = PurescriptRecord::new("Query");
@@ -302,7 +304,7 @@ pub async fn build_schema(
                 union.with_values(
                     &possible_types
                         .iter()
-                        .map(|t| (t.clone(), pascal_case(&t)))
+                        .map(|t| (t.clone(), upper_first(&t)))
                         .collect(),
                 );
 

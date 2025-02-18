@@ -2,11 +2,10 @@ use std::{
     collections::HashMap,
     sync::{Arc, Mutex},
 };
-use stringcase::pascal_case;
 
 use crate::{
     config::parse_outside_types::{Mod, OutsideTypes},
-    purescript_gen::{purescript_argument::Argument, purescript_import::PurescriptImport},
+    purescript_gen::{purescript_argument::Argument, purescript_import::PurescriptImport, upper_first::upper_first},
 };
 
 pub fn as_gql_field(
@@ -26,7 +25,7 @@ pub fn as_gql_field(
     }
     Argument::new_type("AsGql")
         .with_argument(Argument::new_type(&format!("\"{}\"", name)))
-        .with_argument(Argument::new_type(&pascal_case(&type_)))
+        .with_argument(Argument::new_type(&upper_first(&type_)))
 }
 
 fn outside_type(

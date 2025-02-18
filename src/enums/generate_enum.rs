@@ -5,6 +5,7 @@ use crate::config::workspace::WorkspaceConfig;
 use crate::purescript_gen::purescript_enum::Enum;
 use crate::purescript_gen::purescript_import::PurescriptImport;
 use crate::purescript_gen::purescript_variant::Variant;
+use crate::purescript_gen::upper_first::upper_first;
 use crate::write::write;
 
 pub async fn generate_enum(

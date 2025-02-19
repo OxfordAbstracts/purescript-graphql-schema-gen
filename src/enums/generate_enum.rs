@@ -5,6 +5,7 @@ use crate::config::workspace::WorkspaceConfig;
 use crate::purescript_gen::purescript_enum::Enum;
 use crate::purescript_gen::purescript_import::PurescriptImport;
 use crate::purescript_gen::purescript_variant::Variant;
+use crate::purescript_gen::upper_first::upper_first;
 use crate::write::write;
 
 pub async fn generate_enum(
@@ -31,7 +32,7 @@ pub async fn generate_enum(
     {
         vec!["ENUM_PLACEHOLDER".to_string()]
     } else {
-        en.values.iter().map(|v| first_upper(&v.name)).collect()
+        en.values.iter().map(|v| upper_first(&v.name)).collect()
     };
     let original_values: Vec<String> = en.values.iter().map(|v| v.name.clone()).collect();
     let name: String = pascal_case(&en.name);
@@ -97,20 +98,12 @@ pub async fn generate_enum(
         }
     // Otherwise write schema-specific variant enums
     } else {
-        Some(Variant::new(&name).with_values(&original_values))
+        Some(Variant::new(&name).with_values(&original_values).clone())
     }
 }
 
 fn use_variant(name: &str, workspace_config: &WorkspaceConfig) -> bool {
     workspace_config.variant_enums.iter().any(|e| name == e)
-}
-
-fn first_upper(s: &str) -> String {
-    let mut c = s.chars();
-    match c.next() {
-        None => String::new(),
-        Some(f) => f.to_uppercase().collect::<String>() + c.as_str(),
-    }
 }
 
 fn enum_instances(name: &str, values: &Vec<String>, original_values: &Vec<String>) -> String {

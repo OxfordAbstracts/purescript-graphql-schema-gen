@@ -14,8 +14,22 @@ pub async fn fetch_types(
 
     // when no postgres enums are included, skip the enum generation
     if db_env.is_err() {
+        println!("No DATABASE_URL specified. Skipping enum generation.");
         return Ok(HashMap::new());
     }
+
+    let Some(ref postgres_enums_lib) = workspace_config.postgres_enums_lib else {
+        println!("No postgres enums lib specified in workspace config. Skipping enum generation.");
+        return Ok(HashMap::new());
+    };
+
+
+    let Some(postgres_enums_dir) = &workspace_config.postgres_enums_dir else {
+        println!("No postgres enums dir specified in workspace config. Skipping enum generation.");
+        return Ok(HashMap::new());
+    };
+
+
     let database_url =
         db_env.expect("DATABASE_URL should not be required but for some reason is...");
     let pool = PgPoolOptions::new()
@@ -35,12 +49,9 @@ pub async fn fetch_types(
 
     let mut hash_map = HashMap::new();
 
-    let package_name = pascal_case(&workspace_config.postgres_enums_lib);
-    let lib_path = format!(
-        "{}{}",
-        &workspace_config.postgres_enums_dir, &workspace_config.postgres_enums_lib
-    );
-    let package = &workspace_config.postgres_enums_lib;
+    let package_name = pascal_case(&postgres_enums_lib);
+    let lib_path = format!("{}{}", &postgres_enums_dir, &postgres_enums_lib);
+    let package = postgres_enums_lib;
 
     for enum_row in res.iter() {
         let name = enum_row.enumtype.clone();

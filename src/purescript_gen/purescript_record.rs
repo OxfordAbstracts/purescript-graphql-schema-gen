@@ -27,18 +27,34 @@ impl Field {
         self
     }
     pub fn show_field(&self) -> String {
-        // if first character is uppercase, wrap in quotes
-        if self
-            .name
-            .chars()
-            .next()
-            .expect("Field should not be an empty string.")
-            .is_uppercase()
-        {
-            format!("\"{}\"", self.name)
-        } else {
-            self.name.clone()
-        }
+        show_field_name(self.name.clone())
+    }
+}
+
+// if first character is not a lowercase char, wrap in quotes
+pub fn show_field_name(field_name: String) -> String {
+    let head = field_name
+        .chars()
+        .next()
+        .expect("Field should not be an empty string.");
+
+    if head.is_alphabetic() && head.is_lowercase() {
+        field_name
+    } else {
+        format!("\"{}\"", field_name)
+    }
+}
+
+// tests 
+#[cfg(test)]
+mod tests_show_field_name {
+    use super::*;
+
+    #[test]
+    fn test_show_field_name() {
+        assert_eq!(show_field_name("name".to_string()), "name");
+        assert_eq!(show_field_name("Name".to_string()), "\"Name\"");
+        assert_eq!(show_field_name("_".to_string()), "\"_\"");
     }
 }
 
@@ -74,7 +90,7 @@ impl PurescriptRecord {
                 .type_name
                 .get_all_forall_types()
                 .iter()
-                .any(|t| !all_forall_args.contains(t))
+                .any(|t: &String| !all_forall_args.contains(t))
             {
                 return Some(format!(
                     "Field '{name}' uses a forall type '{}' that is not defined in the record arguments",

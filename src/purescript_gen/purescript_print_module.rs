@@ -1,7 +1,7 @@
 use super::{
-    purescript_import::PurescriptImport, purescript_instance::DeriveInstance,
-    purescript_record::PurescriptRecord, purescript_type::PurescriptType,
-    purescript_variant::Variant,
+    purescript_gql_union::GqlUnion, purescript_import::PurescriptImport,
+    purescript_instance::DeriveInstance, purescript_record::PurescriptRecord,
+    purescript_type::PurescriptType, purescript_variant::Variant,
 };
 
 pub fn print_module(
@@ -10,6 +10,7 @@ pub fn print_module(
     records: &mut Vec<PurescriptRecord>,
     imports: &mut Vec<PurescriptImport>,
     variants: &mut Vec<Variant>,
+    unions: &mut Vec<GqlUnion>,
     instances: &mut Vec<DeriveInstance>,
 ) -> String {
     let mut module = format!("module Schema.{role} where");
@@ -50,6 +51,13 @@ pub fn print_module(
         .map(|v| v.to_string())
         .collect::<Vec<String>>()
         .join("\n\n");
+
+    let unions: String = unions
+        .iter_mut()
+        .map(|u| u.to_string())
+        .collect::<Vec<String>>()
+        .join("\n\n");
+
     let instances = instances
         .iter_mut()
         .map(|i| i.to_string())
@@ -68,6 +76,9 @@ pub fn print_module(
     module = module.trim().to_string();
     module.push_str("\n\n");
     module.push_str(&variants);
+    module = module.trim().to_string();
+    module.push_str("\n\n");
+    module.push_str(&unions);
     module = module.trim().to_string();
     module.push_str("\n\n");
     module.push_str(&instances);

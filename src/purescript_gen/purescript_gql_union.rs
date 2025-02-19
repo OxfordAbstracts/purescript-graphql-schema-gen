@@ -1,21 +1,21 @@
 use super::purescript_row::Row;
 
 #[derive(Debug, Clone)]
-pub struct Variant {
+pub struct GqlUnion {
     name: String,
     row: Row,
 }
 
-impl Variant {
+impl GqlUnion {
     pub fn new(name: &str) -> Self {
-        Variant {
+        GqlUnion {
             name: name.to_string(),
             row: Row::new(),
         }
     }
 
-    pub fn with_values(&mut self, values: &Vec<String>) -> &mut Self {
-        self.row.with_unit_values(values);
+    pub fn with_values(&mut self, values: &Vec<(String, String)>) -> &mut Self {
+        self.row.with_values(values);
         self
     }
 
@@ -23,6 +23,6 @@ impl Variant {
         let values = self
             .row
             .to_string();
-        format!("type {} = Variant\n  {values}", self.name)
+        format!("type {} = GqlUnion\n  {values}", self.name)
     }
 }

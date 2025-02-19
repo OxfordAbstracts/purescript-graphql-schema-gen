@@ -6,7 +6,6 @@ use build_schema::build_schema;
 use config::{
     parse_outside_types::{fetch_all_outside_types, OutsideTypes}, parse_roles::parse_roles, parse_scalar_types::{fetch_all_scalar_types, ScalarTypes}, workspace::parse_workspace
 };
-use cynic_introspection::ScalarType;
 use dotenv::dotenv;
 use enums::postgres_types::fetch_types;
 use tokio::spawn;
@@ -26,7 +25,7 @@ async fn main() -> Result<()> {
     let type_gen_timer = std::time::Instant::now();
 
     // Fetch the workspace config
-    let workspace_config = parse_workspace().await?;
+    let workspace_config = parse_workspace();
 
     // Trash existing schema
     for path in vec![
@@ -73,7 +72,7 @@ async fn main() -> Result<()> {
 
     // Run schema gen for each role concurrently
     let mut tasks = Vec::with_capacity(num_roles);
-    println!("Generating schemas for roles: {:#?}", roles);
+
     for role in roles.iter() {
         tasks.push(spawn(build_schema(
             role.clone(),

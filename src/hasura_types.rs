@@ -3,11 +3,12 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use stringcase::pascal_case;
-
 use crate::{
-    config::parse_outside_types::{Mod, OutsideTypes},
-    purescript_gen::{purescript_argument::Argument, purescript_import::PurescriptImport},
+    config::{
+        parse_outside_types::{Mod, OutsideTypes},
+        parse_scalar_types::ScalarTypes,
+    },
+    purescript_gen::{purescript_argument::Argument, purescript_import::PurescriptImport, upper_first::upper_first},
 };
 
 pub fn as_gql_field(
@@ -17,17 +18,32 @@ pub fn as_gql_field(
     imports: &mut Vec<PurescriptImport>,
     purs_types: &Arc<Mutex<HashMap<String, (String, String, String)>>>,
     outside_types: &Arc<Mutex<OutsideTypes>>,
+    scalar_types: &Arc<Mutex<ScalarTypes>>,
 ) -> Argument {
-    let (import, type_) = outside_type(object, field, name, &purs_types, &outside_types);
+    let (import, type_) = outside_type(
+        object,
+        field,
+        name,
+        &purs_types,
+        &outside_types,
+        &scalar_types,
+    );
     if let Some((field_package, field_import)) = import {
         imports.push(PurescriptImport::new(&field_import, &field_package).add_specified(&type_));
         return Argument::new_type("AsGql")
             .with_argument(Argument::new_type(&format!("\"{}\"", name)))
             .with_argument(Argument::new_type(&type_));
     }
+
+    if name == "ID" {
+        return Argument::new_type("AsGql")
+            .with_argument(Argument::new_type(&format!("\"{}\"", name)))
+            .with_argument(Argument::new_type("ID"));
+    }
+
     Argument::new_type("AsGql")
         .with_argument(Argument::new_type(&format!("\"{}\"", name)))
-        .with_argument(Argument::new_type(&pascal_case(&type_)))
+        .with_argument(Argument::new_type(&upper_first(&type_)))
 }
 
 fn outside_type(
@@ -36,6 +52,7 @@ fn outside_type(
     name: &str,
     purs_types: &Arc<Mutex<HashMap<String, (String, String, String)>>>,
     outside_types: &Arc<Mutex<OutsideTypes>>,
+    scalar_types: &Arc<Mutex<ScalarTypes>>,
 ) -> (Option<(String, String)>, String) {
     let is_comparison_fn = name.ends_with("_comparison_exp");
 
@@ -60,7 +77,13 @@ fn outside_type(
         }
     }
 
-    if let Some((package, import, type_)) = get_outside_type(new_object, field, outside_types) {
+    if let Some(Mod {
+        package,
+        import,
+        name: type_,
+    }) = get_outside_type(new_object, field, outside_types)
+        .or_else(|| get_scalar_type(scalar_types, name))
+    {
         if is_comparison_fn {
             match name {
                 "String_comparison_exp" => {
@@ -111,20 +134,22 @@ fn get_outside_type(
     object: &str,
     field: &str,
     outside_types: &Arc<Mutex<OutsideTypes>>,
-) -> Option<(String, String, String)> {
+) -> Option<Mod> {
     outside_types
         .lock()
         .expect("Failed to lock outside types to thread.")
         .get(object)
         .map(|table| table.get(field))
         .flatten()
-        .map(
-            |Mod {
-                 package,
-                 import,
-                 name,
-             }| (package.to_string(), import.to_string(), name.to_string()),
-        )
+        .cloned()
+}
+
+fn get_scalar_type(scalar_types: &Arc<Mutex<ScalarTypes>>, type_name: &str) -> Option<Mod> {
+    scalar_types
+        .lock()
+        .expect("Failed to lock scalar types to thread.")
+        .get(type_name)
+        .cloned()
 }
 
 pub fn base_types(type_name: &str) -> &str {

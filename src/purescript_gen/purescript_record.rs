@@ -1,10 +1,14 @@
 use super::purescript_argument::Argument;
 
+#[derive(Debug)]
+
 pub struct PurescriptRecord {
     pub name: String,
     arguments: Vec<Argument>,
     pub fields: Vec<Field>,
 }
+
+#[derive(Debug)]
 
 pub struct Field {
     name: String,

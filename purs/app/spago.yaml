@@ -23,7 +23,7 @@ package:
     - variant
     - oa-gql-schema-all-users
     - oa-enums
-    - oa-gql-enums
+    - gql-enums
   test:
     main: Test.Main
     dependencies:

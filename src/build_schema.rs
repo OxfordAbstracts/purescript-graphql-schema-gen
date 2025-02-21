@@ -9,12 +9,13 @@ use cynic_introspection::{
     Directive, DirectiveLocation, FieldWrapping, InputValue, InterfaceType, IntrospectionQuery,
     Type, UnionType, WrappingType,
 };
-use stringcase::{kebab_case, pascal_case};
+use stringcase::kebab_case;
 use tokio::task::spawn_blocking;
 
 use crate::{
     config::{
-        parse_outside_types::{Mod, OutsideTypes}, parse_scalar_types::ScalarTypes,
+        parse_outside_types::{Mod, OutsideTypes},
+        parse_scalar_types::ScalarTypes,
         workspace::WorkspaceConfig,
     },
     enums::generate_enum::generate_enum,
@@ -28,6 +29,7 @@ use crate::{
         purescript_record::{show_field_name, Field, PurescriptRecord},
         purescript_type::PurescriptType,
         purescript_variant::Variant,
+        upper_first::upper_first,
     },
     write::write,
 };
@@ -97,41 +99,57 @@ pub async fn build_schema(
     // Adds the root schema record
     let mut schema_record = PurescriptRecord::new("Schema");
 
-    // The schema must always at least have a query type, add it now.
-    let query_type = PurescriptType::new(
-        "Query",
-        vec![],
-        Argument::new_type(&pascal_case(schema.query_type.as_str())),
-    );
-    schema_record.add_field(Field::new("query").with_type(&query_type.name));
-    types.push(query_type);
-
     // Add the directives field (imported above)
     schema_record.add_field(Field::new("directives").with_type_arg(
         Argument::new_type("Proxy").with_argument(Argument::new_type("Directives")),
     ));
 
-    // Optionally add mutation
-    if let Some(mut_type) = &schema.mutation_type {
-        let mutation_type = PurescriptType::new(
-            "Mutation",
+    if workspace_config.create_root_aliases {
+        let query_type = PurescriptType::new(
+            "Query",
             vec![],
-            Argument::new_type(&pascal_case(&mut_type)),
+            Argument::new_type(&upper_first(schema.query_type.as_str())),
         );
-        schema_record.add_field(Field::new("mutation").with_type(&mutation_type.name));
-        types.push(mutation_type);
-    };
 
-    // and subscription types
-    if let Some(mut_type) = &schema.subscription_type {
-        let mutation_type = PurescriptType::new(
-            "Subscription",
-            vec![],
-            Argument::new_type(&pascal_case(&mut_type)),
-        );
-        schema_record.add_field(Field::new("subscription").with_type(&mutation_type.name));
-        types.push(mutation_type);
-    };
+        schema_record.add_field(Field::new("query").with_type(&query_type.name));
+        types.push(query_type);
+
+        // Optionally add mutation
+        if let Some(mut_type) = &schema.mutation_type {
+            let mutation_type = PurescriptType::new(
+                "Mutation",
+                vec![],
+                Argument::new_type(&upper_first(&mut_type)),
+            );
+            schema_record.add_field(Field::new("mutation").with_type(&mutation_type.name));
+            types.push(mutation_type);
+        };
+
+        // and subscription types
+        if let Some(sub_type) = &schema.subscription_type {
+            let sub_type = PurescriptType::new(
+                "Subscription",
+                vec![],
+                Argument::new_type(&upper_first(&sub_type)),
+            );
+            schema_record.add_field(Field::new("subscription").with_type(&sub_type.name));
+            types.push(sub_type);
+        };
+    } else {
+        schema_record.add_field(Field::new("query").with_type(&schema.query_type));
+
+        // Optionally add mutation
+        if let Some(mut_type) = &schema.mutation_type {
+            schema_record.add_field(Field::new("mutation").with_type(&mut_type));
+        };
+
+        // and subscription types
+        if let Some(sub_type) = &schema.subscription_type {
+            schema_record.add_field(Field::new("subscription").with_type(&sub_type));
+        };
+    }
+
+    // The schema must always at least have a query type, add it now.
 
     // Process the schema types
     for type_ in schema.types.iter() {
@@ -142,7 +160,7 @@ pub async fn build_schema(
             }
 
             // Convert the gql_type_name to a PurescriptTypeName
-            let name = pascal_case(&obj.name);
+            let name = upper_first(&obj.name);
 
             // Creates a new record for the object
             let mut record = PurescriptRecord::new("Ignored");
@@ -163,6 +181,7 @@ pub async fn build_schema(
                             &mut imports,
                             &postgres_types,
                             &outside_types,
+                            &scalar_types,
                         ),
                         &arg.ty.wrapping,
                         &mut imports,
@@ -183,6 +202,7 @@ pub async fn build_schema(
                         &mut imports,
                         &postgres_types,
                         &outside_types,
+                        &scalar_types,
                     ),
                     &field.ty.wrapping,
                     &mut imports,
@@ -218,19 +238,28 @@ pub async fn build_schema(
                         add_import("argonaut-core", "Data.Argonaut.Core", "Json", &mut imports)
                     }
                     "time" => add_import("datetime", "Data.Time", "Time", &mut imports),
-                    scalar_name => {
-                      match scalar_types.lock().unwrap().get(scalar_name) {
-                        Some(Mod { package, import, name }) => {
-                          add_import(package, import, name, &mut imports);
-                          types.push(PurescriptType::new(scalar_name, vec![], Argument::new_type(name)));
+                    scalar_name => match scalar_types.lock().unwrap().get(scalar_name) {
+                        Some(Mod {
+                            package,
+                            import,
+                            name,
+                        }) => {
+                            add_import(package, import, name, &mut imports);
+                            types.push(PurescriptType::new(
+                                &&upper_first(scalar_name),
+                                vec![],
+                                Argument::new_type(name),
+                            ));
                         }
                         None => {
-                          add_import("argonaut-core", "Data.Argonaut.Core", "Json", &mut imports);
-                          types.push(PurescriptType::new(scalar_name, vec![], Argument::new_type("Json")));
-
+                            add_import("argonaut-core", "Data.Argonaut.Core", "Json", &mut imports);
+                            types.push(PurescriptType::new(
+                                &upper_first(scalar_name),
+                                vec![],
+                                Argument::new_type("Json"),
+                            ));
                         }
-                      }
-                    }
+                    },
                 }
             }
             Type::Enum(en) => {
@@ -255,7 +284,7 @@ pub async fn build_schema(
                 }
 
                 // Convert the gql_type_name to a PurescriptTypeName
-                let name = pascal_case(&obj.name);
+                let name: String = upper_first(&obj.name);
 
                 // Build a purescript record with all fields
                 let mut record = PurescriptRecord::new("Query");
@@ -270,6 +299,7 @@ pub async fn build_schema(
                             &mut imports,
                             &postgres_types,
                             &outside_types,
+                            &scalar_types,
                         ),
                         &field.ty.wrapping,
                         &mut imports,
@@ -318,7 +348,7 @@ pub async fn build_schema(
                 union.with_values(
                     &possible_types
                         .iter()
-                        .map(|t| (t.clone(), pascal_case(&t)))
+                        .map(|t| (t.clone(), upper_first(&t)))
                         .collect(),
                 );
 

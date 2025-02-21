@@ -22,4 +22,11 @@ pub struct WorkspaceConfig {
     pub schema_libs_dir: String,
     #[serde(default = "Vec::new")]
     pub variant_enums: Vec<String>,
+    #[serde(default = "mk_false")]
+    pub create_root_aliases: bool,
+    pub enums_package_name: String,
+}
+
+fn mk_false () -> bool {
+    false
 }

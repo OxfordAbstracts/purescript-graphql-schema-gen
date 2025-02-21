@@ -15,7 +15,7 @@ pub fn print_module(
 ) -> String {
     let mut module = format!("module Schema.{role} where");
     types.sort_by_key(|t| t.name.clone());
-    types.dedup_by_key(|t| t.name.clone());
+    // types.dedup_by_key(|t| t.name.clone());
 
     let types = types
         .iter_mut()

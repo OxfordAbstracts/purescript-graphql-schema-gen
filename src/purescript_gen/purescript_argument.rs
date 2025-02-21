@@ -1,9 +1,13 @@
 use super::purescript_record::PurescriptRecord;
+
+#[derive(Debug)]
 pub enum Argument {
     Type(String, Vec<Argument>),
     Function(Box<PurescriptFunctionType>),
     Record(PurescriptRecord),
 }
+
+#[derive(Debug)]
 
 pub struct PurescriptFunctionType {
     pub arguments: Vec<Argument>,

@@ -35,7 +35,7 @@ pub async fn generate_enum(
         en.values.iter().map(|v| upper_first(&v.name)).collect()
     };
     let original_values: Vec<String> = en.values.iter().map(|v| v.name.clone()).collect();
-    let name: String = pascal_case(&en.name);
+    let name: String = upper_first(&en.name);
 
     // Some enums are shared between all schemas
     // Hasura suffixes 'Enum' to the end of custom enums created
@@ -51,7 +51,8 @@ pub async fn generate_enum(
                 &workspace_config.shared_graphql_enums_lib
             );
             let package_name = pascal_case(&workspace_config.shared_graphql_enums_lib);
-            let module_name = format!("{package_name}.{name}");
+            let name_pascal = pascal_case(&name);
+            let module_name = format!("{package_name}.{name_pascal}");
             let helper_module = format!("{package_name}.Utils.VariantHelpers");
             if let Some(variant) = variant_mod(
                 &name,
@@ -60,17 +61,17 @@ pub async fn generate_enum(
                 &format!("\nimport {helper_module} (var, match)"),
             ) {
                 imports
-                    .push(PurescriptImport::new(&module_name, "oa-gql-enums").add_specified(&name));
+                    .push(PurescriptImport::new(&module_name, &workspace_config.enums_package_name).add_specified(&name));
 
                 write(
-                    &format!("{lib_path}/src/{package_name}/{name}.purs"),
+                    &format!("{lib_path}/src/{package_name}/{module_name}.purs"),
                     &variant,
                 );
                 write(
                     &format!("{lib_path}/src/{package_name}/Utils/VariantHelpers.purs"),
                     &format!("module {helper_module} where \n{VARIANT_HELPERS_MOD}"),
                 );
-                write(&format!("{lib_path}/spago.yaml"), &enums_spago_yaml());
+                write(&format!("{lib_path}/spago.yaml"), &enums_spago_yaml(&workspace_config.enums_package_name));
             }
 
             None
@@ -79,8 +80,9 @@ pub async fn generate_enum(
 
             let instances = enum_instances(&name, &values, &original_values);
             let package_name = pascal_case(&workspace_config.shared_graphql_enums_lib);
-            let module_name = format!("{package_name}.{name}");
-            imports.push(PurescriptImport::new(&module_name, "oa-gql-enums").add_specified(&name));
+            let name_pascal = pascal_case(&name);
+            let module_name = format!("{package_name}.{name_pascal}");
+            imports.push(PurescriptImport::new(&module_name, &workspace_config.enums_package_name).add_specified(&name));
 
             let lib_path = format!(
                 "{}{}",
@@ -88,12 +90,12 @@ pub async fn generate_enum(
                 &workspace_config.shared_graphql_enums_lib
             );
             write(
-                &format!("{lib_path}/src/{package_name}/{name}.purs"),
+                &format!("{lib_path}/src/{package_name}/{name_pascal}.purs"),
                 &format!(
                     "module {module_name} ({name}(..)) where\n\n{MODULE_IMPORTS}\n\n{e}{instances}"
                 ),
             );
-            write(&format!("{lib_path}/spago.yaml"), &enums_spago_yaml());
+            write(&format!("{lib_path}/spago.yaml"), &enums_spago_yaml(&workspace_config.enums_package_name));
             None
         }
     // Otherwise write schema-specific variant enums
@@ -397,9 +399,11 @@ fn to_variant(type_name: &str, name: &str) -> String {
     )
 }
 
-fn enums_spago_yaml() -> String {
+fn enums_spago_yaml(package_name: &str) -> String {
+
+  format!(
     r#"package:
-  name: oa-gql-enums
+  name: {package_name}
   dependencies:
     - argonaut
     - argonaut-codecs
@@ -416,8 +420,8 @@ fn enums_spago_yaml() -> String {
     - variant
     - oa-make-fixture
     - oa-encode-decode
-"#
-    .to_string()
+"#)
+
 }
 
 const MODULE_IMPORTS: &str = r#"import Prelude

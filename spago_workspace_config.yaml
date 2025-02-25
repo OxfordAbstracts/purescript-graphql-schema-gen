@@ -1,7 +1,9 @@
 postgres_enums_lib: oa-enums-postgres
-postgres_enums_dir: ./purs-projects/lib/generated-gql-external/
-shared_graphql_enums_lib: oa-gql-external-
-shared_graphql_enums_dir: ./purs-projects/lib/generated-gql-external/
-schema_libs_prefix: oa-gql-external-schema-
-schema_libs_dir: ./purs-projects/lib/generated-gql-external/
-enums_package_name: gql-enums
+postgres_enums_dir: ../OxfordAbstracts/application/purs-projects/lib/generated-new/
+shared_graphql_enums_lib: oa-gql-enums
+shared_graphql_enums_dir: ../OxfordAbstracts/application/purs-projects/lib/generated-new/
+schema_libs_prefix: oa-gql-schema-
+schema_libs_dir: ../OxfordAbstracts/application/purs-projects/lib/generated-new/
+variant_enums:
+  - QuestionTypesEnum
+  - ReviewerRecruitmentQuestionTypesEnum

@@ -244,11 +244,11 @@ pub async fn build_schema(
                             import,
                             name,
                         }) => {
-                            add_import(package, import, name, &mut imports);
+                            add_qualified_import(package, import, name, import, &mut imports);
                             types.push(PurescriptType::new(
                                 &&upper_first(scalar_name),
                                 vec![],
-                                Argument::new_type(name),
+                                Argument::new_type(&format!("{}.{}", import, name)),
                             ));
                         }
                         None => {
@@ -430,6 +430,20 @@ fn add_import(
     imports: &mut Vec<PurescriptImport>,
 ) -> () {
     imports.push(PurescriptImport::new(import, package).add_specified(specified));
+}
+
+fn add_qualified_import(
+    package: &str,
+    import: &str,
+    specified: &str,
+    as_name: &str,
+    imports: &mut Vec<PurescriptImport>,
+) -> () {
+    imports.push(
+        PurescriptImport::new(import, package)
+            .add_specified(specified)
+            .qualify(as_name),
+    );
 }
 
 /// Optionally wraps the return type in Maybe/Array types,

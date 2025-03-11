@@ -1,4 +1,4 @@
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct PurescriptImport {
     pub module: String,
     pub specified: Vec<Specified>,
@@ -6,7 +6,7 @@ pub struct PurescriptImport {
     pub package: String,
 }
 
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub struct Specified {
     pub import: String,
 }
@@ -58,6 +58,11 @@ impl PurescriptImport {
         self
     }
 
+    pub fn qualify(mut self, as_name: &str) -> Self {
+        self.as_name = Some(as_name.to_string());
+        self
+    }
+
     pub fn add_specified_mut(&mut self, import: &str) {
         self.specified.push(Specified {
             import: import.to_string(),
@@ -71,14 +76,17 @@ impl PurescriptImport {
             .iter()
             .map(|s| s.to_string())
             .collect::<Vec<String>>();
+
         let specified = match specified.join(", ").as_str() {
             "" => "",
             s => &format!("({s})").to_string(),
         };
+
         let as_name = match &self.as_name {
-            Some(name) => format!("as {name}"),
+            Some(name) => format!(" as {name}"),
             None => "".to_string(),
         };
+
         format!("import {} {specified}{as_name}", self.module)
             .trim()
             .to_string()

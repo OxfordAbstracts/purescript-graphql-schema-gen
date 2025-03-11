@@ -8,7 +8,10 @@ use crate::{
         parse_outside_types::{Mod, OutsideTypes},
         parse_scalar_types::ScalarTypes,
     },
-    purescript_gen::{purescript_argument::Argument, purescript_import::PurescriptImport, upper_first::upper_first},
+    purescript_gen::{
+        purescript_argument::Argument, purescript_import::PurescriptImport,
+        upper_first::upper_first,
+    },
 };
 
 pub fn as_gql_field(
@@ -20,7 +23,7 @@ pub fn as_gql_field(
     outside_types: &Arc<Mutex<OutsideTypes>>,
     scalar_types: &Arc<Mutex<ScalarTypes>>,
 ) -> Argument {
-    let (import, type_) = outside_type(
+    let (import, type_) = get_type(
         object,
         field,
         name,
@@ -28,11 +31,17 @@ pub fn as_gql_field(
         &outside_types,
         &scalar_types,
     );
-    if let Some((field_package, field_import)) = import {
+    if let Some((field_package, field_import, is_scalar)) = import {
+        if is_scalar {
+            return Argument::new_type("AsGql")
+                .with_argument(Argument::new_type(&format!("\"{}\"", name)))
+                .with_argument(Argument::new_type(&format!("{}", type_)));
+        }
         imports.push(PurescriptImport::new(&field_import, &field_package).add_specified(&type_));
+
         return Argument::new_type("AsGql")
             .with_argument(Argument::new_type(&format!("\"{}\"", name)))
-            .with_argument(Argument::new_type(&type_));
+            .with_argument(Argument::new_type(&format!("{}", type_)));
     }
 
     if name == "ID" {
@@ -46,14 +55,14 @@ pub fn as_gql_field(
         .with_argument(Argument::new_type(&upper_first(&type_)))
 }
 
-fn outside_type(
+fn get_type(
     object: &str,
     field: &str,
     name: &str,
     purs_types: &Arc<Mutex<HashMap<String, (String, String, String)>>>,
     outside_types: &Arc<Mutex<OutsideTypes>>,
     scalar_types: &Arc<Mutex<ScalarTypes>>,
-) -> (Option<(String, String)>, String) {
+) -> (Option<(String, String, bool)>, String) {
     let is_comparison_fn = name.ends_with("_comparison_exp");
 
     let mut new_object;
@@ -82,7 +91,6 @@ fn outside_type(
         import,
         name: type_,
     }) = get_outside_type(new_object, field, outside_types)
-        .or_else(|| get_scalar_type(scalar_types, name))
     {
         if is_comparison_fn {
             match name {
@@ -91,6 +99,7 @@ fn outside_type(
                         Some((
                             "oa-ids".to_string(), // TODO this isn't in graphql-client but should be
                             "Data.ComparisonExpString".to_string(), // There's a special case in print_module to remove the exports from this module
+                            false,
                         )),
                         format!("(ComparisonExpString {type_})"),
                     );
@@ -100,19 +109,30 @@ fn outside_type(
                         Some((
                             "graphql-client".to_string(),
                             "GraphQL.Hasura.ComparisonExp".to_string(), // There's a special case in print_module to remove the exports from this module
+                            false,
                         )),
                         format!("(ComparisonExp {type_})"),
                     );
                 }
             }
         }
-        (Some((package, import)), type_)
+        (Some((package, import, false)), type_)
+    } else if let Some(Mod {
+        package,
+        import,
+        name,
+    }) = get_scalar_type(scalar_types, name)
+    {
+        (Some((package, import, true)), name)
     } else if let Some((package, import, type_)) = purs_types
         .lock()
         .expect("Failed to lock purs type to thread.")
         .get(name)
     {
-        (Some((package.clone(), import.clone())), type_.clone())
+        (
+            Some((package.clone(), import.clone(), false)),
+            type_.clone(),
+        )
     } else {
         (None, base_types(name).to_string())
     }

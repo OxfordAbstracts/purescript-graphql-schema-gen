@@ -27,4 +27,4 @@ publish-jobs = ["npm"]
 global = "ubuntu-latest"
 
 [dist.github-custom-runners.x86_64-unknown-linux-gnu]
-runner = "ubuntu-20.04"
+runner = "ubuntu-latest"

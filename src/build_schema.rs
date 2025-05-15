@@ -417,7 +417,7 @@ fn build_directives(lib_path: String, role: String, directives: Vec<Directive>) 
     let mut directive_mod = "".to_string();
     // Push the module header + types type + declaration to the directive module
     directive_mod.push_str(&format!(
-        "module {role}.Directives where \n{DIRECTIVE_IMPORTS}"
+        "-- @generated\nmodule {role}.Directives where \n{DIRECTIVE_IMPORTS}"
     ));
 
     let mut directive_types = "".to_string();

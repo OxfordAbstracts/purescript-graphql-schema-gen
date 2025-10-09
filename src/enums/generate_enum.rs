@@ -408,21 +408,20 @@ fn enums_spago_yaml() -> String {
     r#"package:
   name: oa-gql-enums
   dependencies:
-    - argonaut
     - argonaut-codecs
-    - arrays
     - bifunctors
     - either
     - enums
     - foreign
     - foreign-generic
     - graphql-client
+    - maybe
+    - newtype
+    - oa-encode-decode
+    - oa-make-fixture
     - prelude
-    - simple-json
     - transformers
     - variant
-    - oa-make-fixture
-    - oa-encode-decode
 "#
     .to_string()
 }

@@ -47,6 +47,11 @@ pub struct WorkspaceConfig {
     /// Rough upper bound on lines per split module. Single cyclic type groups
     /// may exceed it.
     pub split_module_max_lines: usize,
+    /// GraphQL types whose name contains any of these substrings are not
+    /// generated, and fields returning or taking them are dropped. Used to
+    /// skip Hasura plumbing the codebase never queries (e.g. `_stddev`,
+    /// `_stream_cursor`).
+    pub exclude_type_patterns: Vec<String>,
 }
 
 impl WorkspaceConfig {
@@ -68,9 +73,24 @@ impl WorkspaceConfig {
             .get(&Yaml::String("split_module_max_lines".to_string()))
             .and_then(|v| v.as_i64())
             .unwrap_or(500) as usize;
+        let exclude_type_patterns = yaml_hash
+            .get(&Yaml::String("exclude_type_patterns".to_string()))
+            .and_then(|v| v.as_vec())
+            .map(|patterns| {
+                patterns
+                    .iter()
+                    .map(|p| {
+                        p.as_str()
+                            .expect("Workspace yaml exclude_type_patterns should all be strings")
+                            .to_string()
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
         Some(Self {
             split_schema_modules,
             split_module_max_lines,
+            exclude_type_patterns,
             postgres_enums_lib: postgres_enums_lib
                 .as_str()
                 .expect("Workspace yaml should contain postgres_enums_lib key.")

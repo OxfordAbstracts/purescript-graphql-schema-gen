@@ -87,3 +87,19 @@ split_schema_modules: true
 # optional, rough upper bound on lines per generated module (default 500)
 split_module_max_lines: 500
 ```
+
+## Excluding unused schema plumbing
+
+`exclude_type_patterns` drops GraphQL types whose name contains any of the
+given substrings, along with every field that returns or takes them. Types
+left unreachable from the schema roots are pruned as well (split mode).
+Useful for Hasura plumbing nothing in the codebase queries:
+
+```yaml
+exclude_type_patterns:
+  - _stddev
+  - _var_pop
+  - _var_samp
+  - _variance
+  - _stream_cursor
+```

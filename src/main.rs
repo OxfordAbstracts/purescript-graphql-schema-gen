@@ -13,6 +13,7 @@ use config::{
 use dotenv::dotenv;
 use enums::postgres_types::fetch_types;
 use tokio::spawn;
+use write::remove_stale_files;
 mod build_schema;
 mod config;
 mod enums;
@@ -31,15 +32,19 @@ async fn main() -> Result<()> {
     // Fetch the workspace config
     let workspace_config = parse_workspace().await?;
 
-    // Trash existing schema
-    for path in vec![
-        workspace_config.postgres_enums_dir.clone(),
-        workspace_config.shared_graphql_enums_dir.clone(),
-        workspace_config.schema_libs_dir.clone(),
-    ]
-    .iter()
-    {
-        remove_dir_all(path).ok();
+    // In split mode existing files are left in place so their mtimes survive
+    // when the content is unchanged; stale files are removed after generation
+    // instead (see the end of main). Otherwise trash the existing schema.
+    if !workspace_config.split_schema_modules {
+        for path in vec![
+            workspace_config.postgres_enums_dir.clone(),
+            workspace_config.shared_graphql_enums_dir.clone(),
+            workspace_config.schema_libs_dir.clone(),
+        ]
+        .iter()
+        {
+            remove_dir_all(path).ok();
+        }
     }
 
     // Generate postgres enum types
@@ -85,6 +90,19 @@ async fn main() -> Result<()> {
                 .expect("Failed to build schema gen task output")
                 .expect("Failed to join schema gen task output"),
         );
+    }
+
+    // Remove files left over from previous runs (renamed chunks, dropped
+    // types/roles). Only relevant in split mode; the other mode trashes the
+    // directories up front.
+    if workspace_config.split_schema_modules {
+        for dir in [
+            &workspace_config.postgres_enums_dir,
+            &workspace_config.shared_graphql_enums_dir,
+            &workspace_config.schema_libs_dir,
+        ] {
+            remove_stale_files(dir);
+        }
     }
 
     println!(

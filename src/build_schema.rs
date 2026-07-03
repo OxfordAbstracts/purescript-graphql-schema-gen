@@ -136,6 +136,9 @@ pub async fn build_schema(
                 if obj.name.starts_with("__") {
                     continue;
                 }
+                if is_excluded(&obj.name, &workspace_config.exclude_type_patterns) {
+                    continue;
+                }
 
                 // Convert the hasura_type_name to a PurescriptTypeName
                 let name = pascal_case(&obj.name);
@@ -145,6 +148,16 @@ pub async fn build_schema(
 
                 // Add type fields to the record
                 for field in obj.fields.iter() {
+                    // Skip fields that return or take an excluded type
+                    // (e.g. the stddev field of aggregate_fields, or _stream
+                    // root fields whose cursor argument is excluded).
+                    if is_excluded(&field.ty.name, &workspace_config.exclude_type_patterns)
+                        || field.args.iter().any(|arg| {
+                            is_excluded(&arg.ty.name, &workspace_config.exclude_type_patterns)
+                        })
+                    {
+                        continue;
+                    }
                     // If the field has arguments then the purescript representation will be:
                     // field_name :: { | Arguments } -> ReturnType
 
@@ -220,6 +233,9 @@ pub async fn build_schema(
                 if en.name.starts_with("__") {
                     continue;
                 }
+                if is_excluded(&en.name, &workspace_config.exclude_type_patterns) {
+                    continue;
+                }
 
                 // Generate purescript enums for all graphql types
                 // These include table select columns as well as custom enums
@@ -235,6 +251,9 @@ pub async fn build_schema(
                 if obj.name.starts_with("__") {
                     continue;
                 }
+                if is_excluded(&obj.name, &workspace_config.exclude_type_patterns) {
+                    continue;
+                }
 
                 // Convert the hasura_type_name to a PurescriptTypeName
                 let name = pascal_case(&obj.name);
@@ -242,6 +261,10 @@ pub async fn build_schema(
                 // Build a purescript record with all fields
                 let mut record = PurescriptRecord::new("Query");
                 for field in obj.fields.iter() {
+                    // Skip fields typed by an excluded type
+                    if is_excluded(&field.ty.name, &workspace_config.exclude_type_patterns) {
+                        continue;
+                    }
                     // Work out the type of the field, wrapping in NotNull or Array as required.
                     // This will also resolve any outside types.
                     let arg_type = wrap_type(
@@ -327,9 +350,13 @@ pub async fn build_schema(
         );
     }
 
-    // Write the directives module
+    // Write the directives module.
+    // Awaited so the write is guaranteed to have happened (and be registered)
+    // before the stale-file cleanup at the end of the run.
     let path_clone = lib_path.clone();
-    spawn_blocking(move || build_directives(path_clone, directive_role, schema.directives));
+    spawn_blocking(move || build_directives(path_clone, directive_role, schema.directives))
+        .await
+        .expect("Failed to write directives module.");
 
     write(
         &format!("{lib_path}/spago.yaml"),
@@ -358,6 +385,12 @@ fn to_spago_yaml(prefix: &str, role: &str, imports: &Vec<PurescriptImport>) -> S
         spago_yaml.push_str(&format!("\n    - {name}"));
     }
     spago_yaml
+}
+
+/// Whether a GraphQL type name matches any of the configured exclusion
+/// patterns (plain substring match).
+fn is_excluded(gql_type_name: &str, patterns: &Vec<String>) -> bool {
+    patterns.iter().any(|p| gql_type_name.contains(p.as_str()))
 }
 
 /// Simplified import add via plain strings

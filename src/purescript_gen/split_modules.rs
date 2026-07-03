@@ -58,27 +58,47 @@ pub fn print_split_modules(
     }
     decls.sort_by(|a, b| a.name.cmp(&b.name));
 
-    let index_of: HashMap<String, usize> = decls
-        .iter()
-        .enumerate()
-        .map(|(i, d)| (d.name.clone(), i))
-        .collect();
+    let mut index_of = build_index(&decls);
+    let mut graph = build_graph(&decls, &index_of);
 
-    // Reference graph between the declarations of this schema
-    let graph: Vec<Vec<usize>> = decls
+    // Prune declarations unreachable from the Schema record. This happens
+    // when exclude_type_patterns removed every field that referenced a helper
+    // type, or when the introspected schema carries genuinely orphaned types.
+    let record_tokens = tokenize(
+        &schema_records
+            .iter()
+            .map(|r| r.to_string())
+            .collect::<Vec<String>>()
+            .join("\n"),
+    );
+    let mut reachable = vec![false; decls.len()];
+    let mut queue: Vec<usize> = record_tokens
         .iter()
-        .map(|d| {
-            let mut refs: Vec<usize> = d
-                .tokens
-                .iter()
-                .filter_map(|t| index_of.get(t))
-                .copied()
-                .collect();
-            refs.sort();
-            refs.dedup();
-            refs
-        })
+        .filter_map(|t| index_of.get(t))
+        .copied()
         .collect();
+    for i in &queue {
+        reachable[*i] = true;
+    }
+    while let Some(i) = queue.pop() {
+        for r in &graph[i] {
+            if !reachable[*r] {
+                reachable[*r] = true;
+                queue.push(*r);
+            }
+        }
+    }
+    let pruned = reachable.iter().filter(|r| !**r).count();
+    if pruned > 0 {
+        println!("Pruned {pruned} types unreachable from the {role} schema");
+        decls = decls
+            .into_iter()
+            .zip(reachable)
+            .filter_map(|(d, r)| if r { Some(d) } else { None })
+            .collect();
+        index_of = build_index(&decls);
+        graph = build_graph(&decls, &index_of);
+    }
 
     let components = strongly_connected_components(&graph);
     let levels = component_levels(&graph, &components);
@@ -254,12 +274,14 @@ fn top_module(
 }
 
 /// Keep only the imports whose specified names actually occur in the module
-/// body, dropping import lines that end up empty.
+/// body, dropping import lines that end up empty. When two modules provide
+/// the same name (e.g. Time from both Data.Time and Data.DateTime via outside
+/// types) it is kept on one line only, avoiding redundant-import warnings.
 fn filter_external_imports(
     merged: &Vec<PurescriptImport>,
     tokens: &HashSet<String>,
 ) -> Vec<String> {
-    let mut lines: Vec<String> = vec![];
+    let mut kept: Vec<PurescriptImport> = vec![];
     for import in merged {
         let mut import = import.clone();
         // Special case kept identical to print_module: these two modules are
@@ -278,6 +300,15 @@ fn filter_external_imports(
                 .trim_start_matches("type ");
             tokens.contains(bare)
         });
+        kept.push(import);
+    }
+    kept.sort_by(|a, b| a.module.cmp(&b.module));
+    let mut seen_names: HashSet<String> = HashSet::new();
+    let mut lines: Vec<String> = vec![];
+    for mut import in kept {
+        import
+            .specified
+            .retain(|s| seen_names.insert(s.import.clone()));
         if import.specified.is_empty() {
             continue;
         }
@@ -308,15 +339,49 @@ impl Decl {
     }
 }
 
-/// All identifier-shaped tokens in a printed declaration. Type references
-/// always appear as standalone tokens, so this can never miss an edge; the
-/// occasional false positive from a string literal only makes the grouping
-/// slightly more conservative.
+fn build_index(decls: &Vec<Decl>) -> HashMap<String, usize> {
+    decls
+        .iter()
+        .enumerate()
+        .map(|(i, d)| (d.name.clone(), i))
+        .collect()
+}
+
+/// Reference graph between the declarations of this schema
+fn build_graph(decls: &Vec<Decl>, index_of: &HashMap<String, usize>) -> Vec<Vec<usize>> {
+    decls
+        .iter()
+        .map(|d| {
+            let mut refs: Vec<usize> = d
+                .tokens
+                .iter()
+                .filter_map(|t| index_of.get(t))
+                .copied()
+                .collect();
+            refs.sort();
+            refs.dedup();
+            refs
+        })
+        .collect()
+}
+
+/// All identifier-shaped tokens in a printed declaration, ignoring string
+/// literals (which hold GraphQL names, not PureScript references). Type
+/// references always appear as standalone tokens outside strings, so this
+/// can never miss an edge or an import.
 fn tokenize(s: &str) -> HashSet<String> {
     let mut tokens = HashSet::new();
     let mut current = String::new();
+    let mut in_string = false;
     for c in s.chars() {
-        if c.is_ascii_alphanumeric() || c == '_' || c == '\'' {
+        if c == '"' {
+            in_string = !in_string;
+            if !current.is_empty() {
+                tokens.insert(std::mem::take(&mut current));
+            }
+        } else if in_string {
+            continue;
+        } else if c.is_ascii_alphanumeric() || c == '_' || c == '\'' {
             current.push(c);
         } else if !current.is_empty() {
             tokens.insert(std::mem::take(&mut current));
@@ -450,12 +515,12 @@ mod tests {
     }
 
     #[test]
-    fn tokenizer_splits_identifiers() {
+    fn tokenizer_splits_identifiers_and_skips_strings() {
         let tokens = tokenize("newtype A = A\n  { b :: AsGql \"x_exp\" (Maybe B) }");
         assert!(tokens.contains("A"));
         assert!(tokens.contains("B"));
         assert!(tokens.contains("Maybe"));
-        assert!(tokens.contains("x_exp"));
+        assert!(!tokens.contains("x_exp"), "string literals are not references");
         assert!(!tokens.contains("A = A"));
     }
 }

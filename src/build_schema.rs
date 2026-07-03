@@ -24,6 +24,7 @@ use crate::{
         purescript_record::{Field, PurescriptRecord},
         purescript_type::PurescriptType,
         purescript_variant::Variant,
+        split_modules::print_split_modules,
     },
     write::write,
 };
@@ -295,19 +296,36 @@ pub async fn build_schema(
         kebab_case(&role)
     );
 
-    // Write the schema module to the file system
-    let schema_module_path = format!("{lib_path}/src/Schema/{role}.purs");
-    write(
-        &schema_module_path,
-        &print_module(
+    // Write the schema module(s) to the file system
+    if workspace_config.split_schema_modules {
+        types.sort_by_key(|t| t.name.clone());
+        let modules = print_split_modules(
             &role,
-            &mut types,
-            &mut records,
-            &mut imports,
-            &mut variants,
-            &mut instances,
-        ),
-    );
+            &types,
+            &records,
+            &imports,
+            &variants,
+            &instances,
+            workspace_config.split_module_max_lines,
+        );
+        for (module_name, contents) in modules {
+            let module_path = module_name.replace('.', "/");
+            write(&format!("{lib_path}/src/{module_path}.purs"), &contents);
+        }
+    } else {
+        let schema_module_path = format!("{lib_path}/src/Schema/{role}.purs");
+        write(
+            &schema_module_path,
+            &print_module(
+                &role,
+                &mut types,
+                &mut records,
+                &mut imports,
+                &mut variants,
+                &mut instances,
+            ),
+        );
+    }
 
     // Write the directives module
     let path_clone = lib_path.clone();

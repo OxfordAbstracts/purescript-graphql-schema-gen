@@ -67,3 +67,23 @@ templates
 ```
 
 The keys don't have to exist on the object you call the template for, but any keys that do match will be replaced with the template value.
+
+## Split schema modules
+
+By default each role schema is generated as one module, which for large Hasura
+schemas can reach tens of thousands of lines and dominates PureScript compile
+times (a single module cannot be compiled in parallel, and any schema change
+recompiles all of it).
+
+Setting `split_schema_modules: true` in the workspace config yaml splits each
+role schema into many small modules instead. Only types in the same
+strongly-connected component of the type reference graph need to share a
+module (PureScript forbids cyclic imports); everything else is chunked by
+topological level. The top `Schema.{role}` module re-exports every chunk, so
+consuming code needs no changes.
+
+```yaml
+split_schema_modules: true
+# optional, rough upper bound on lines per generated module (default 500)
+split_module_max_lines: 500
+```

@@ -39,6 +39,14 @@ pub struct WorkspaceConfig {
     pub schema_libs_prefix: String,
     pub schema_libs_dir: String,
     pub variant_enums: Vec<String>,
+    /// Split each role schema into many small modules (grouped by
+    /// strongly-connected components of the type reference graph) instead of
+    /// one giant module. The top `Schema.{role}` module re-exports everything,
+    /// so consuming code is unaffected.
+    pub split_schema_modules: bool,
+    /// Rough upper bound on lines per split module. Single cyclic type groups
+    /// may exceed it.
+    pub split_module_max_lines: usize,
 }
 
 impl WorkspaceConfig {
@@ -52,7 +60,17 @@ impl WorkspaceConfig {
         let schema_libs_prefix = yaml_hash.get(&Yaml::String("schema_libs_prefix".to_string()))?;
         let schema_libs_dir = yaml_hash.get(&Yaml::String("schema_libs_dir".to_string()))?;
         let variant_enums = yaml_hash.get(&Yaml::String("variant_enums".to_string()));
+        let split_schema_modules = yaml_hash
+            .get(&Yaml::String("split_schema_modules".to_string()))
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+        let split_module_max_lines = yaml_hash
+            .get(&Yaml::String("split_module_max_lines".to_string()))
+            .and_then(|v| v.as_i64())
+            .unwrap_or(500) as usize;
         Some(Self {
+            split_schema_modules,
+            split_module_max_lines,
             postgres_enums_lib: postgres_enums_lib
                 .as_str()
                 .expect("Workspace yaml should contain postgres_enums_lib key.")

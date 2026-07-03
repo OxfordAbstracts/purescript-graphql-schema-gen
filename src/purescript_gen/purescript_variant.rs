@@ -16,6 +16,10 @@ impl Variant {
         self
     }
 
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
     pub fn to_string(&self) -> String {
         let values = self
             .values

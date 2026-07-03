@@ -22,6 +22,10 @@ impl DeriveInstance {
         self
     }
 
+    pub fn type_name(&self) -> &str {
+        &self.type_name
+    }
+
     pub fn to_string(&self) -> String {
         format!(
             "derive instance {} {} {}",

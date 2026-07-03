@@ -6,3 +6,4 @@ pub mod purescript_print_module;
 pub mod purescript_record;
 pub mod purescript_type;
 pub mod purescript_variant;
+pub mod split_modules;

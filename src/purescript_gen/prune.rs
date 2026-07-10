@@ -1,5 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
+use stringcase::pascal_case;
+
 use super::{
     purescript_gql_union::GqlUnion, purescript_import::PurescriptImport,
     purescript_instance::DeriveInstance, purescript_record::PurescriptRecord,
@@ -57,8 +59,9 @@ pub fn prune_unreachable(
         .collect();
 
     // With create_root_aliases: false the Schema record refers to the raw
-    // GraphQL root names (e.g. query_root), not the upper_first'd declaration
-    // names, so try both spellings when resolving roots.
+    // GraphQL root names (e.g. query_root), not the transformed declaration
+    // names, so try every spelling (raw, upper_first, pascal_case) when
+    // resolving roots.
     let record_tokens = tokenize(
         &schema_records
             .iter()
@@ -69,7 +72,12 @@ pub fn prune_unreachable(
     let mut reachable = vec![false; decls.len()];
     let mut queue: Vec<usize> = record_tokens
         .iter()
-        .filter_map(|t| index_of.get(t).or_else(|| index_of.get(&upper_first(t))))
+        .filter_map(|t| {
+            index_of
+                .get(t)
+                .or_else(|| index_of.get(&upper_first(t)))
+                .or_else(|| index_of.get(&pascal_case(t)))
+        })
         .copied()
         .collect();
     if queue.is_empty() {

@@ -68,6 +68,21 @@ templates
 
 The keys don't have to exist on the object you call the template for, but any keys that do match will be replaced with the template value.
 
+## Type name casing
+
+By default GraphQL type names only get their first letter uppercased to make
+them valid PureScript type names (`users_insert_input` ->
+`Users_insert_input`). Set `pascal_case_types: true` to fully PascalCase them
+instead (`users_insert_input` -> `UsersInsertInput`).
+
+```yaml
+pascal_case_types: true
+```
+
+Note that the `SHARED_ENUM_SUFFIXES` env var is matched against the
+*converted* type name, so its entries need to use the same casing
+(e.g. `Enum` with `pascal_case_types: true`, `_enum` without).
+
 ## Skipping unused schema plumbing
 
 `skip_types` takes a list of regexes matched against GraphQL type names:

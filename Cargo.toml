@@ -6,14 +6,14 @@ default-run = "pursgql"
 repository = "https://github.com/OxfordAbstracts/purescript-graphql-schema-gen"
 
 [dependencies]
-cynic = { version = "3.8.0", features = ["http-reqwest", "http-reqwest-blocking"] }
-cynic-introspection = "3.8.0"
+cynic = { version = "3.13.2", features = ["http-reqwest", "http-reqwest-blocking"] }
+cynic-introspection = "3.13.2"
 dotenv = "0.15.0"
 futures = "0.3.30"
 hashlink = "0.8.4"
 phf = { version = "0.11.2", features = ["macros"] }
 regex = "1"
-reqwest = "0.12.7"
+reqwest = "0.13.4"
 sqlx = { version = "0.8.2", features = ["postgres", "runtime-tokio"] }
 stringcase = "0.3.0"
 tokio = { version = "1.40.0", features = ["full"] }

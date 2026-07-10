@@ -59,6 +59,12 @@ pub struct WorkspaceConfig {
     pub variant_enums: Vec<String>,
     #[serde(default = "mk_false")]
     pub create_root_aliases: bool,
+    /// When true, GraphQL type names are converted to PascalCase PureScript
+    /// type names (e.g. `users_insert_input` -> `UsersInsertInput`). When
+    /// false (the default), only the first letter is uppercased
+    /// (`Users_insert_input`).
+    #[serde(default = "mk_false")]
+    pub pascal_case_types: bool,
     pub enums_package_name: String,
     /// GraphQL types matching these rules are not generated, fields returning
     /// them are dropped, and arguments taking them are dropped.

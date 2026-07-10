@@ -8,7 +8,7 @@ use crate::{
         parse_outside_types::{Mod, OutsideTypes},
         parse_scalar_types::ScalarTypes,
     },
-    purescript_gen::{purescript_argument::Argument, purescript_import::PurescriptImport, upper_first::upper_first},
+    purescript_gen::{purescript_argument::Argument, purescript_import::PurescriptImport, upper_first::type_name},
 };
 
 pub fn as_gql_field(
@@ -19,6 +19,7 @@ pub fn as_gql_field(
     purs_types: &Arc<Mutex<HashMap<String, (String, String, String)>>>,
     outside_types: &Arc<Mutex<OutsideTypes>>,
     scalar_types: &Arc<Mutex<ScalarTypes>>,
+    pascal_case_types: bool,
 ) -> Argument {
     let (import, type_) = outside_type(
         object,
@@ -43,7 +44,7 @@ pub fn as_gql_field(
 
     Argument::new_type("AsGql")
         .with_argument(Argument::new_type(&format!("\"{}\"", name)))
-        .with_argument(Argument::new_type(&upper_first(&type_)))
+        .with_argument(Argument::new_type(&type_name(&type_, pascal_case_types)))
 }
 
 fn outside_type(

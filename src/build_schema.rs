@@ -30,7 +30,7 @@ use crate::{
         purescript_record::{show_field_name, Field, PurescriptRecord},
         purescript_type::PurescriptType,
         purescript_variant::Variant,
-        upper_first::upper_first,
+        upper_first::type_name,
     },
     write::write,
 };
@@ -109,7 +109,10 @@ pub async fn build_schema(
         let query_type = PurescriptType::new(
             "Query",
             vec![],
-            Argument::new_type(&upper_first(schema.query_type.as_str())),
+            Argument::new_type(&type_name(
+                schema.query_type.as_str(),
+                workspace_config.pascal_case_types,
+            )),
         );
 
         schema_record.add_field(Field::new("query").with_type(&query_type.name));
@@ -120,7 +123,7 @@ pub async fn build_schema(
             let mutation_type = PurescriptType::new(
                 "Mutation",
                 vec![],
-                Argument::new_type(&upper_first(&mut_type)),
+                Argument::new_type(&type_name(&mut_type, workspace_config.pascal_case_types)),
             );
             schema_record.add_field(Field::new("mutation").with_type(&mutation_type.name));
             types.push(mutation_type);
@@ -131,7 +134,7 @@ pub async fn build_schema(
             let sub_type = PurescriptType::new(
                 "Subscription",
                 vec![],
-                Argument::new_type(&upper_first(&sub_type)),
+                Argument::new_type(&type_name(&sub_type, workspace_config.pascal_case_types)),
             );
             schema_record.add_field(Field::new("subscription").with_type(&sub_type.name));
             types.push(sub_type);
@@ -165,7 +168,7 @@ pub async fn build_schema(
             }
 
             // Convert the gql_type_name to a PurescriptTypeName
-            let name = upper_first(&obj.name);
+            let name = type_name(&obj.name, workspace_config.pascal_case_types);
 
             // Creates a new record for the object
             let mut record = PurescriptRecord::new("Ignored");
@@ -197,6 +200,7 @@ pub async fn build_schema(
                             &postgres_types,
                             &outside_types,
                             &scalar_types,
+                            workspace_config.pascal_case_types,
                         ),
                         &arg.ty.wrapping,
                         &mut imports,
@@ -218,6 +222,7 @@ pub async fn build_schema(
                         &postgres_types,
                         &outside_types,
                         &scalar_types,
+                        workspace_config.pascal_case_types,
                     ),
                     &field.ty.wrapping,
                     &mut imports,
@@ -256,6 +261,9 @@ pub async fn build_schema(
                         add_import("argonaut-core", "Data.Argonaut.Core", "Json", &mut imports)
                     }
                     "time" => add_import("datetime", "Data.Time", "Time", &mut imports),
+                    // Postgres enum scalars are imported where they are used,
+                    // so declaring a local alias would only shadow the import.
+                    scalar_name if postgres_types.lock().unwrap().contains_key(scalar_name) => {}
                     scalar_name => match scalar_types.lock().unwrap().get(scalar_name) {
                         Some(Mod {
                             package,
@@ -263,19 +271,35 @@ pub async fn build_schema(
                             name,
                         }) => {
                             add_import(package, import, name, &mut imports);
-                            types.push(PurescriptType::new(
-                                &&upper_first(scalar_name),
-                                vec![],
-                                Argument::new_type(name),
-                            ));
+                            let alias = type_name(scalar_name, workspace_config.pascal_case_types);
+                            // Skip self-referential aliases (`type X = X`)
+                            if &alias != name {
+                                types.push(PurescriptType::new(
+                                    &alias,
+                                    vec![],
+                                    Argument::new_type(name),
+                                ));
+                            }
                         }
                         None => {
-                            add_import("argonaut-core", "Data.Argonaut.Core", "Json", &mut imports);
-                            types.push(PurescriptType::new(
-                                &upper_first(scalar_name),
-                                vec![],
-                                Argument::new_type("Json"),
-                            ));
+                            let alias = type_name(scalar_name, workspace_config.pascal_case_types);
+                            // Scalars resolved through outside types (e.g. action
+                            // scalars mapped to id/override types) are imported
+                            // where they are used; a local Json alias would
+                            // shadow that import.
+                            if !is_outside_type_name(&alias, &outside_types) {
+                                add_import(
+                                    "argonaut-core",
+                                    "Data.Argonaut.Core",
+                                    "Json",
+                                    &mut imports,
+                                );
+                                types.push(PurescriptType::new(
+                                    &alias,
+                                    vec![],
+                                    Argument::new_type("Json"),
+                                ));
+                            }
                         }
                     },
                 }
@@ -310,7 +334,7 @@ pub async fn build_schema(
                 }
 
                 // Convert the gql_type_name to a PurescriptTypeName
-                let name: String = upper_first(&obj.name);
+                let name: String = type_name(&obj.name, workspace_config.pascal_case_types);
 
                 // Build a purescript record with all fields
                 let mut record = PurescriptRecord::new("Query");
@@ -332,6 +356,7 @@ pub async fn build_schema(
                             &postgres_types,
                             &outside_types,
                             &scalar_types,
+                            workspace_config.pascal_case_types,
                         ),
                         &field.ty.wrapping,
                         &mut imports,
@@ -383,7 +408,7 @@ pub async fn build_schema(
                 union.with_values(
                     &possible_types
                         .iter()
-                        .map(|t| (t.clone(), upper_first(&t)))
+                        .map(|t| (t.clone(), type_name(&t, workspace_config.pascal_case_types)))
                         .collect(),
                 );
 
@@ -485,6 +510,15 @@ fn to_spago_yaml(prefix: &str, role: &str, imports: &Vec<PurescriptImport>) -> S
 
 /// Whether a GraphQL type or field name matches the configured skip rules
 /// (last matching rule wins, `!`-prefixed rules negate).
+/// Whether any outside type mapping resolves to this PureScript type name.
+fn is_outside_type_name(name: &str, outside_types: &Arc<Mutex<OutsideTypes>>) -> bool {
+    outside_types
+        .lock()
+        .expect("Failed to lock outside types to thread.")
+        .values()
+        .any(|table| table.values().any(|m| m.name == name))
+}
+
 fn should_skip(name: &str, rules: &[SkipRule]) -> bool {
     let mut skip = false;
     for rule in rules {
@@ -562,16 +596,6 @@ fn wrap_type(
         }
     }
     argument
-}
-
-/// Format the schema directives into a separate module.
-/// TODO stop directives from being hardcoded string mods with bad imports just for our simple use...
-fn build_directives(lib_path: String, role: String, directives: Vec<Directive>) -> () {
-    let mut directive_mod = "".to_string();
-    // Push the module header + types type + declaration to the directive module
-    directive_mod.push_str(&format!(
-        "-- @generated\nmodule {role}.Directives where \n{DIRECTIVE_IMPORTS}"
-    ));
 }
 
 fn wrap_type_str(mut str: String, wrapping: &FieldWrapping) -> String {
@@ -660,7 +684,7 @@ fn build_directives(lib_path: String, role: String, directives: Vec<Directive>) 
     let mut directive_mod = "".to_string();
     // Push the module header + types type + declaration to the directive module
     directive_mod.push_str(&format!(
-        "module {role}.Directives where \n{DIRECTIVE_IMPORTS}\ntype Directives :: List' Type\n{directive_str}\n\n{directive_fns}"
+        "-- @generated\nmodule {role}.Directives where \n{DIRECTIVE_IMPORTS}\ntype Directives :: List' Type\n{directive_str}\n\n{directive_fns}"
     ));
 
     write(

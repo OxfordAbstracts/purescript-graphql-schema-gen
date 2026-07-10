@@ -1,5 +1,5 @@
 use std::{
-    collections::HashMap, fs::remove_dir_all, sync::{Arc, Mutex}, thread::Result
+    collections::HashMap, sync::{Arc, Mutex}, thread::Result
 };
 
 use build_schema::build_schema;
@@ -9,6 +9,7 @@ use config::{
 use dotenv::dotenv;
 use enums::postgres_types::fetch_types;
 use tokio::spawn;
+use write::remove_stale_files;
 mod build_schema;
 mod config;
 mod enums;
@@ -27,21 +28,10 @@ async fn main() -> Result<()> {
     // Fetch the workspace config
     let workspace_config = parse_workspace();
 
-    // Trash existing schema
-    for path in vec![
-        workspace_config.postgres_enums_dir.clone(),
-        Some(workspace_config.shared_graphql_enums_dir.clone()),
-        Some(workspace_config.schema_libs_dir.clone()),
-    ]
-    .iter()
-    {
-      match path { 
-        Some(dir) => {
-            remove_dir_all(dir).ok();
-        }
-        None => (),
-      }
-    }
+    // Existing files are left in place so their mtimes survive when the
+    // content is unchanged; stale files are removed after generation instead
+    // (see the end of main).
+
     // Generate postgres enum types
     let postgres_types = fetch_types(&workspace_config)
         .await
@@ -90,6 +80,19 @@ async fn main() -> Result<()> {
                 .expect("Failed to build schema gen task output")
                 .expect("Failed to join schema gen task output"),
         );
+    }
+
+    // Remove files left over from previous runs (dropped types, roles or
+    // enums) and any directories left empty.
+    for dir in [
+        workspace_config.postgres_enums_dir.as_ref(),
+        Some(&workspace_config.shared_graphql_enums_dir),
+        Some(&workspace_config.schema_libs_dir),
+    ]
+    .into_iter()
+    .flatten()
+    {
+        remove_stale_files(dir);
     }
 
     println!(

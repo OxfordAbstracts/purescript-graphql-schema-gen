@@ -16,11 +16,12 @@ use crate::{
     config::{
         parse_outside_types::{Mod, OutsideTypes},
         parse_scalar_types::ScalarTypes,
-        workspace::WorkspaceConfig,
+        workspace::{SkipRule, WorkspaceConfig},
     },
     enums::generate_enum::generate_enum,
     hasura_types::as_gql_field,
     purescript_gen::{
+        prune::{drop_unused_imports, prune_unreachable},
         purescript_argument::Argument,
         purescript_gql_union::GqlUnion,
         purescript_import::PurescriptImport,
@@ -159,6 +160,10 @@ pub async fn build_schema(
                 return;
             }
 
+            if should_skip(&obj.name, &workspace_config.skip_types) {
+                return;
+            }
+
             // Convert the gql_type_name to a PurescriptTypeName
             let name = upper_first(&obj.name);
 
@@ -167,12 +172,22 @@ pub async fn build_schema(
 
             // Add type fields to the record
             for field in obj.fields.iter() {
+                // Skip fields returning a skipped type or matching a skipped key
+                if should_skip(&field.ty.name, &workspace_config.skip_types)
+                    || should_skip(&field.name, &workspace_config.skip_keys)
+                {
+                    continue;
+                }
                 // If the field has arguments then the purescript representation will be:
                 // field_name :: { | Arguments } -> ReturnType
 
                 // Build the arguments record:
                 let mut args = PurescriptRecord::new("Arguments");
                 for arg in &field.args {
+                    // Skip arguments taking a skipped type
+                    if should_skip(&arg.ty.name, &workspace_config.skip_types) {
+                        continue;
+                    }
                     let arg_type = wrap_type(
                         as_gql_field(
                             &field.name,
@@ -225,6 +240,9 @@ pub async fn build_schema(
         match type_ {
             Type::Object(obj) => handle_obj(&obj),
             Type::Scalar(scalar) => {
+                if should_skip(&scalar.name, &workspace_config.skip_types) {
+                    continue;
+                }
                 // Add imports for common scalar types if they are used.
                 // TODO maybe move these to config so they can be updated outside of rust
                 match scalar.name.as_str() {
@@ -268,6 +286,10 @@ pub async fn build_schema(
                     continue;
                 }
 
+                if should_skip(&en.name, &workspace_config.skip_types) {
+                    continue;
+                }
+
                 // Generate purescript enums for all graphql types
                 // These include table select columns as well as custom enums
                 let enum_to_add = generate_enum(&en, &mut imports, &workspace_config).await;
@@ -283,12 +305,22 @@ pub async fn build_schema(
                     continue;
                 }
 
+                if should_skip(&obj.name, &workspace_config.skip_types) {
+                    continue;
+                }
+
                 // Convert the gql_type_name to a PurescriptTypeName
                 let name: String = upper_first(&obj.name);
 
                 // Build a purescript record with all fields
                 let mut record = PurescriptRecord::new("Query");
                 for field in obj.fields.iter() {
+                    // Skip fields typed by a skipped type or matching a skipped key
+                    if should_skip(&field.ty.name, &workspace_config.skip_types)
+                        || should_skip(&field.name, &workspace_config.skip_keys)
+                    {
+                        continue;
+                    }
                     // Work out the type of the field, wrapping in NotNull or Array as required.
                     // This will also resolve any outside types.
                     let arg_type = wrap_type(
@@ -335,6 +367,9 @@ pub async fn build_schema(
                 possible_types,
                 ..
             }) => {
+                if should_skip(&name, &workspace_config.skip_types) {
+                    continue;
+                }
                 // Currently ignored as we don't have any in our schemas
                 add_import(
                     "graphql-client",
@@ -367,6 +402,28 @@ pub async fn build_schema(
     }
     records.push(schema_record);
 
+    // Skipping fields can leave types with no remaining referents, which may
+    // themselves reference skipped (missing) types; drop everything
+    // unreachable from the Schema record, then any imports nothing uses.
+    if !workspace_config.skip_types.is_empty() || !workspace_config.skip_keys.is_empty() {
+        prune_unreachable(
+            &role,
+            &mut types,
+            &mut variants,
+            &mut unions,
+            &mut instances,
+            &records,
+        );
+        drop_unused_imports(
+            &mut imports,
+            &types,
+            &variants,
+            &unions,
+            &instances,
+            &records,
+        );
+    }
+
     let lib_path = format!(
         "{}{}{}",
         workspace_config.schema_libs_dir,
@@ -389,9 +446,13 @@ pub async fn build_schema(
 
     write(&schema_module_path, &printed);
 
-    // Write the directives module
+    // Write the directives module.
+    // Awaited so the write is guaranteed to have happened (and be registered)
+    // before the stale-file cleanup at the end of the run.
     let path_clone = lib_path.clone();
-    spawn_blocking(move || build_directives(path_clone, directive_role, schema.directives));
+    spawn_blocking(move || build_directives(path_clone, directive_role, schema.directives))
+        .await
+        .expect("Failed to write directives module.");
 
     write(
         &format!("{lib_path}/spago.yaml"),
@@ -420,6 +481,18 @@ fn to_spago_yaml(prefix: &str, role: &str, imports: &Vec<PurescriptImport>) -> S
         spago_yaml.push_str(&format!("\n    - {name}"));
     }
     spago_yaml
+}
+
+/// Whether a GraphQL type or field name matches the configured skip rules
+/// (last matching rule wins, `!`-prefixed rules negate).
+fn should_skip(name: &str, rules: &[SkipRule]) -> bool {
+    let mut skip = false;
+    for rule in rules {
+        if rule.pattern.is_match(name) {
+            skip = !rule.negated;
+        }
+    }
+    skip
 }
 
 /// Simplified import add via plain strings

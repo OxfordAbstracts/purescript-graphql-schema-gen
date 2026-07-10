@@ -1722,7 +1722,7 @@ dependencies = [
 
 [[package]]
 name = "rust-purs-gql"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "cynic",
  "cynic-introspection",

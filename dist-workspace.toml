@@ -31,3 +31,12 @@ runner = "ubuntu-22.04"
 
 [dist.github-custom-runners.aarch64-unknown-linux-gnu]
 runner = "ubuntu-22.04-arm"
+
+# dist 0.27 defaults Apple builds to macos-13, which GitHub retired in
+# December 2025 (jobs queue forever). macos-15-intel is the last x86_64
+# image and is supported until August 2027.
+[dist.github-custom-runners.x86_64-apple-darwin]
+runner = "macos-15-intel"
+
+[dist.github-custom-runners.aarch64-apple-darwin]
+runner = "macos-15"

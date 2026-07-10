@@ -5,8 +5,7 @@ use stringcase::pascal_case;
 use super::{
     purescript_gql_union::GqlUnion, purescript_import::PurescriptImport,
     purescript_instance::DeriveInstance, purescript_record::PurescriptRecord,
-    purescript_type::PurescriptType, purescript_variant::Variant,
-    upper_first::upper_first,
+    purescript_type::PurescriptType, purescript_variant::Variant, upper_first::upper_first,
 };
 
 /// Drop declarations unreachable from the Schema record.
@@ -101,7 +100,6 @@ pub fn prune_unreachable(
     if pruned == 0 {
         return;
     }
-    println!("Pruned {pruned} types unreachable from the {role} schema");
     let is_reachable = |name: &str| index_of.get(name).map(|i| reachable[*i]).unwrap_or(true);
     types.retain(|t| is_reachable(&t.name));
     variants.retain(|v| is_reachable(v.name()));

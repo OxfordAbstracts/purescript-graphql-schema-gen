@@ -1,14 +1,10 @@
 use std::{
-    fs::remove_dir_all,
-    sync::{Arc, Mutex},
-    thread::Result,
+    collections::HashMap, fs::remove_dir_all, sync::{Arc, Mutex}, thread::Result
 };
 
 use build_schema::build_schema;
 use config::{
-    parse_outside_types::{fetch_all_outside_types, OutsideTypes},
-    parse_roles::parse_roles,
-    workspace::parse_workspace,
+    parse_outside_types::{fetch_all_outside_types, OutsideTypes}, parse_roles::parse_roles, parse_scalar_types::{fetch_all_scalar_types, ScalarTypes}, workspace::parse_workspace
 };
 use dotenv::dotenv;
 use enums::postgres_types::fetch_types;
@@ -29,19 +25,23 @@ async fn main() -> Result<()> {
     let type_gen_timer = std::time::Instant::now();
 
     // Fetch the workspace config
-    let workspace_config = parse_workspace().await?;
+    let workspace_config = parse_workspace();
 
     // Trash existing schema
     for path in vec![
         workspace_config.postgres_enums_dir.clone(),
-        workspace_config.shared_graphql_enums_dir.clone(),
-        workspace_config.schema_libs_dir.clone(),
+        Some(workspace_config.shared_graphql_enums_dir.clone()),
+        Some(workspace_config.schema_libs_dir.clone()),
     ]
     .iter()
     {
-        remove_dir_all(path).ok();
+      match path { 
+        Some(dir) => {
+            remove_dir_all(dir).ok();
+        }
+        None => (),
+      }
     }
-
     // Generate postgres enum types
     let postgres_types = fetch_types(&workspace_config)
         .await
@@ -59,6 +59,8 @@ async fn main() -> Result<()> {
     // Parse all outside type config
     let outside_types: OutsideTypes = fetch_all_outside_types(&workspace_config);
 
+    let scalar_types: ScalarTypes = fetch_all_scalar_types().unwrap_or(HashMap::new());
+
     // Fetch role config
     let roles: Vec<String> = parse_roles();
     let num_roles = roles.len();
@@ -66,14 +68,17 @@ async fn main() -> Result<()> {
     // Postgres types are shared between all roles
     let types_ = Arc::new(Mutex::new(postgres_types));
     let outside_types = Arc::new(Mutex::new(outside_types));
+    let scalar_types = Arc::new(Mutex::new(scalar_types));
 
     // Run schema gen for each role concurrently
     let mut tasks = Vec::with_capacity(num_roles);
+
     for role in roles.iter() {
         tasks.push(spawn(build_schema(
             role.clone(),
             types_.clone(),
             outside_types.clone(),
+            scalar_types.clone(),
             workspace_config.clone(),
         )));
     }

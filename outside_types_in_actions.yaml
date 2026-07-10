@@ -90,7 +90,7 @@ outside_types:
   DrOrderTicketData:
     id: drId=DrTicketId
     ticket_group_id: drId=DrTicketGroupId
-    description_html: RawHtml, GqlOverrides.RawHTML, oa-ids # changed type name to avoid clashing imports - will need to alias
+    description_html: RawHtml, GqlOverrides.RawHTML, oa-ids # changed type name to avoid clashing imports - will need to alias
   DrOrderAddon:
     status: DrLineItemStatusesEnum, OaGqlEnums.DrLineItemStatusesEnum, oa-gql-enums
     ticket_id: drId=DrTicketId
@@ -132,7 +132,7 @@ outside_types:
   DrAdminTicket:
     with: delreg_common
     id: drId=DrTicketId
-    description_html: RawHtml, GqlOverrides.RawHTML, oa-override-gql # changed type name to avoid clashing imports - will need to alias
+    description_html: RawHtml, GqlOverrides.RawHTML, oa-override-gql # changed type name to avoid clashing imports - will need to alias
   DrAuthorizePaymentLinkInput:
     with: delreg_common
   DrAuthorizePaymentLinkOpenAccessInput:

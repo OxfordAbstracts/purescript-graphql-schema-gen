@@ -6,24 +6,30 @@ use std::{
 
 use cynic::{http::ReqwestExt, QueryBuilder};
 use cynic_introspection::{
-    Directive, DirectiveLocation, FieldWrapping, InterfaceType, IntrospectionQuery, Type,
-    UnionType, WrappingType,
+    Directive, DirectiveLocation, FieldWrapping, InputValue, InterfaceType, IntrospectionQuery,
+    Type, UnionType, WrappingType,
 };
-use stringcase::{kebab_case, pascal_case};
+use stringcase::kebab_case;
 use tokio::task::spawn_blocking;
 
 use crate::{
-    config::{parse_outside_types::OutsideTypes, workspace::WorkspaceConfig},
+    config::{
+        parse_outside_types::{Mod, OutsideTypes},
+        parse_scalar_types::ScalarTypes,
+        workspace::WorkspaceConfig,
+    },
     enums::generate_enum::generate_enum,
     hasura_types::as_gql_field,
     purescript_gen::{
         purescript_argument::Argument,
+        purescript_gql_union::GqlUnion,
         purescript_import::PurescriptImport,
         purescript_instance::{derive_new_type_instance, DeriveInstance},
         purescript_print_module::print_module,
-        purescript_record::{Field, PurescriptRecord},
+        purescript_record::{show_field_name, Field, PurescriptRecord},
         purescript_type::PurescriptType,
         purescript_variant::Variant,
+        upper_first::upper_first,
     },
     write::write,
 };
@@ -32,6 +38,7 @@ pub async fn build_schema(
     role: String,
     postgres_types: Arc<Mutex<HashMap<String, (String, String, String)>>>,
     outside_types: Arc<Mutex<OutsideTypes>>,
+    scalar_types: Arc<Mutex<ScalarTypes>>,
     workspace_config: WorkspaceConfig,
 ) -> Result<()> {
     // Fetch the introspection schema
@@ -58,6 +65,7 @@ pub async fn build_schema(
     let mut types: Vec<PurescriptType> = vec![];
     let mut imports: Vec<PurescriptImport> = vec![];
     let mut variants: Vec<Variant> = vec![];
+    let mut unions: Vec<GqlUnion> = vec![];
     let mut instances: Vec<DeriveInstance> = vec![];
 
     // Add the purescript GraphQL client imports that are always used,
@@ -91,117 +99,136 @@ pub async fn build_schema(
     // Adds the root schema record
     let mut schema_record = PurescriptRecord::new("Schema");
 
-    // The schema must always at least have a query type, add it now.
-    let query_type = PurescriptType::new(
-        "Query",
-        vec![],
-        Argument::new_type(&pascal_case(schema.query_type.as_str())),
-    );
-    schema_record.add_field(Field::new("query").with_type(&query_type.name));
-    types.push(query_type);
-
     // Add the directives field (imported above)
     schema_record.add_field(Field::new("directives").with_type_arg(
         Argument::new_type("Proxy").with_argument(Argument::new_type("Directives")),
     ));
 
-    // Optionally add mutation
-    if let Some(mut_type) = &schema.mutation_type {
-        let mutation_type = PurescriptType::new(
-            "Mutation",
+    if workspace_config.create_root_aliases {
+        let query_type = PurescriptType::new(
+            "Query",
             vec![],
-            Argument::new_type(&pascal_case(&mut_type)),
+            Argument::new_type(&upper_first(schema.query_type.as_str())),
         );
-        schema_record.add_field(Field::new("mutation").with_type(&mutation_type.name));
-        types.push(mutation_type);
-    };
 
-    // and subscription types
-    if let Some(mut_type) = &schema.subscription_type {
-        let mutation_type = PurescriptType::new(
-            "Subscription",
-            vec![],
-            Argument::new_type(&pascal_case(&mut_type)),
-        );
-        schema_record.add_field(Field::new("subscription").with_type(&mutation_type.name));
-        types.push(mutation_type);
-    };
+        schema_record.add_field(Field::new("query").with_type(&query_type.name));
+        types.push(query_type);
+
+        // Optionally add mutation
+        if let Some(mut_type) = &schema.mutation_type {
+            let mutation_type = PurescriptType::new(
+                "Mutation",
+                vec![],
+                Argument::new_type(&upper_first(&mut_type)),
+            );
+            schema_record.add_field(Field::new("mutation").with_type(&mutation_type.name));
+            types.push(mutation_type);
+        };
+
+        // and subscription types
+        if let Some(sub_type) = &schema.subscription_type {
+            let sub_type = PurescriptType::new(
+                "Subscription",
+                vec![],
+                Argument::new_type(&upper_first(&sub_type)),
+            );
+            schema_record.add_field(Field::new("subscription").with_type(&sub_type.name));
+            types.push(sub_type);
+        };
+    } else {
+        schema_record.add_field(Field::new("query").with_type(&schema.query_type));
+
+        // Optionally add mutation
+        if let Some(mut_type) = &schema.mutation_type {
+            schema_record.add_field(Field::new("mutation").with_type(&mut_type));
+        };
+
+        // and subscription types
+        if let Some(sub_type) = &schema.subscription_type {
+            schema_record.add_field(Field::new("subscription").with_type(&sub_type));
+        };
+    }
+
+    // The schema must always at least have a query type, add it now.
 
     // Process the schema types
     for type_ in schema.types.iter() {
-        match type_ {
-            Type::Object(obj) => {
-                // There are a couple of `__` prefixed Hasura types that we can safely ignore
-                if obj.name.starts_with("__") {
-                    continue;
-                }
+        let mut handle_obj = |obj: &cynic_introspection::ObjectType| {
+            // There are a builting of `__` prefixed graphql types that we can safely ignore
+            if obj.name.starts_with("__") {
+                return;
+            }
 
-                // Convert the hasura_type_name to a PurescriptTypeName
-                let name = pascal_case(&obj.name);
+            // Convert the gql_type_name to a PurescriptTypeName
+            let name = upper_first(&obj.name);
 
-                // Creates a new record for the object
-                let mut record = PurescriptRecord::new("Ignored");
+            // Creates a new record for the object
+            let mut record = PurescriptRecord::new("Ignored");
 
-                // Add type fields to the record
-                for field in obj.fields.iter() {
-                    // If the field has arguments then the purescript representation will be:
-                    // field_name :: { | Arguments } -> ReturnType
+            // Add type fields to the record
+            for field in obj.fields.iter() {
+                // If the field has arguments then the purescript representation will be:
+                // field_name :: { | Arguments } -> ReturnType
 
-                    // Build the arguments record:
-                    let mut args = PurescriptRecord::new("Arguments");
-                    for arg in &field.args {
-                        let arg_type = wrap_type(
-                            as_gql_field(
-                                &field.name,
-                                &arg.name,
-                                &arg.ty.name,
-                                &mut imports,
-                                &postgres_types,
-                                &outside_types,
-                            ),
-                            &arg.ty.wrapping,
-                            &mut imports,
-                        );
-                        let mut arg_field = Field::new(&arg.name);
-                        arg_field.type_name = arg_type;
-                        args.add_field(arg_field);
-                    }
-
-                    // Build the return type,
-                    // potentially wrapping values in Array or Maybe
-                    // and resolving any matched outside types
-                    let return_type = return_type_wrapper(
+                // Build the arguments record:
+                let mut args = PurescriptRecord::new("Arguments");
+                for arg in &field.args {
+                    let arg_type = wrap_type(
                         as_gql_field(
-                            &obj.name,
                             &field.name,
-                            &field.ty.name,
+                            &arg.name,
+                            &arg.ty.name,
                             &mut imports,
                             &postgres_types,
                             &outside_types,
+                            &scalar_types,
                         ),
-                        &field.ty.wrapping,
+                        &arg.ty.wrapping,
                         &mut imports,
                     );
-
-                    // Add the function argument to the new record field
-                    // and add it to the object record
-                    let function_arg =
-                        Argument::new_function(vec![Argument::new_record(args)], return_type);
-                    let record_field = Field::new(&field.name).with_type_arg(function_arg);
-                    record.add_field(record_field);
+                    let mut arg_field = Field::new(&arg.name);
+                    arg_field.type_name = arg_type;
+                    args.add_field(arg_field);
                 }
 
-                // Create the newtype record for the object and append it to the schema module types
-                let mut query_type =
-                    PurescriptType::new(&name, vec![], Argument::new_record(record));
-                query_type.set_newtype(true);
-                instances.push(derive_new_type_instance(&query_type.name));
-                types.push(query_type);
+                // Build the return type,
+                // potentially wrapping values in Array or Maybe
+                // and resolving any matched outside types
+                let return_type = return_type_wrapper(
+                    as_gql_field(
+                        &obj.name,
+                        &field.name,
+                        &field.ty.name,
+                        &mut imports,
+                        &postgres_types,
+                        &outside_types,
+                        &scalar_types,
+                    ),
+                    &field.ty.wrapping,
+                    &mut imports,
+                );
+
+                // Add the function argument to the new record field
+                // and add it to the object record
+                let function_arg =
+                    Argument::new_function(vec![Argument::new_record(args)], return_type);
+                let record_field = Field::new(&field.name).with_type_arg(function_arg);
+                record.add_field(record_field);
             }
+
+            // Create the newtype record for the object and append it to the schema module types
+            let mut query_type = PurescriptType::new(&name, vec![], Argument::new_record(record));
+            query_type.set_newtype(true);
+            instances.push(derive_new_type_instance(&query_type.name));
+            types.push(query_type);
+        };
+        match type_ {
+            Type::Object(obj) => handle_obj(&obj),
             Type::Scalar(scalar) => {
                 // Add imports for common scalar types if they are used.
                 // TODO maybe move these to config so they can be updated outside of rust
                 match scalar.name.as_str() {
+                    "ID" => add_import("graphql-client", "GraphQL.Client.ID", "ID", &mut imports),
                     _ if scalar.is_builtin() => {} // ignore built in types like String, Int, etc.
                     "date" => add_import("datetime", "Data.Date", "Date", &mut imports),
                     "timestamp" | "timestamptz" => {
@@ -211,11 +238,32 @@ pub async fn build_schema(
                         add_import("argonaut-core", "Data.Argonaut.Core", "Json", &mut imports)
                     }
                     "time" => add_import("datetime", "Data.Time", "Time", &mut imports),
-                    _ => {}
+                    scalar_name => match scalar_types.lock().unwrap().get(scalar_name) {
+                        Some(Mod {
+                            package,
+                            import,
+                            name,
+                        }) => {
+                            add_import(package, import, name, &mut imports);
+                            types.push(PurescriptType::new(
+                                &&upper_first(scalar_name),
+                                vec![],
+                                Argument::new_type(name),
+                            ));
+                        }
+                        None => {
+                            add_import("argonaut-core", "Data.Argonaut.Core", "Json", &mut imports);
+                            types.push(PurescriptType::new(
+                                &upper_first(scalar_name),
+                                vec![],
+                                Argument::new_type("Json"),
+                            ));
+                        }
+                    },
                 }
             }
             Type::Enum(en) => {
-                // Ignore internal Hasura enums beginning with `__`
+                // Ignore internal graphql enums beginning with `__`
                 if en.name.starts_with("__") {
                     continue;
                 }
@@ -230,13 +278,13 @@ pub async fn build_schema(
                 }
             }
             Type::InputObject(obj) => {
-                // Ignore internal Hasura input objects beginning with `__`
+                // Ignore internal graphql input objects beginning with `__`
                 if obj.name.starts_with("__") {
                     continue;
                 }
 
-                // Convert the hasura_type_name to a PurescriptTypeName
-                let name = pascal_case(&obj.name);
+                // Convert the gql_type_name to a PurescriptTypeName
+                let name: String = upper_first(&obj.name);
 
                 // Build a purescript record with all fields
                 let mut record = PurescriptRecord::new("Query");
@@ -251,6 +299,7 @@ pub async fn build_schema(
                             &mut imports,
                             &postgres_types,
                             &outside_types,
+                            &scalar_types,
                         ),
                         &field.ty.wrapping,
                         &mut imports,
@@ -267,13 +316,43 @@ pub async fn build_schema(
                 instances.push(derive_new_type_instance(&query_type.name));
                 types.push(query_type);
             }
-            Type::Interface(InterfaceType { name, .. }) => {
-                // Currently ignored as we don't have any in our schemas
-                println!("Interface: {name}");
+            Type::Interface(InterfaceType {
+                name,
+                fields,
+                description,
+                ..
+            }) => {
+                handle_obj(&cynic_introspection::ObjectType {
+                    name: name.clone(),
+                    fields: fields.clone(),
+                    description: description.clone(),
+                    interfaces: vec![],
+                });
             }
-            Type::Union(UnionType { name, .. }) => {
+            Type::Union(UnionType {
+                name,
+                description: _,
+                possible_types,
+                ..
+            }) => {
                 // Currently ignored as we don't have any in our schemas
-                println!("Union: {name}");
+                add_import(
+                    "graphql-client",
+                    "GraphQL.Client.Union",
+                    "GqlUnion",
+                    &mut imports,
+                );
+
+                let mut union = GqlUnion::new(&name);
+
+                union.with_values(
+                    &possible_types
+                        .iter()
+                        .map(|t| (t.clone(), upper_first(&t)))
+                        .collect(),
+                );
+
+                unions.push(union);
             }
         }
     }
@@ -297,17 +376,18 @@ pub async fn build_schema(
 
     // Write the schema module to the file system
     let schema_module_path = format!("{lib_path}/src/Schema/{role}.purs");
-    write(
-        &schema_module_path,
-        &print_module(
-            &role,
-            &mut types,
-            &mut records,
-            &mut imports,
-            &mut variants,
-            &mut instances,
-        ),
+
+    let printed = print_module(
+        &role,
+        &mut types,
+        &mut records,
+        &mut imports,
+        &mut variants,
+        &mut unions,
+        &mut instances,
     );
+
+    write(&schema_module_path, &printed);
 
     // Write the directives module
     let path_clone = lib_path.clone();
@@ -419,66 +499,96 @@ fn build_directives(lib_path: String, role: String, directives: Vec<Directive>) 
     directive_mod.push_str(&format!(
         "-- @generated\nmodule {role}.Directives where \n{DIRECTIVE_IMPORTS}"
     ));
+}
 
-    let mut directive_types = "".to_string();
-    let mut directive_functions = "".to_string();
-    for directive in directives {
-        let directive_name = directive.name;
-        let locations = &directive.locations;
-        let allowed_location = locations.iter().any(is_allowed_location);
-        if allowed_location {
-            let description = directive.description.clone().unwrap_or("\"\"".to_string());
-
-            // Give the Directives type a type
-            let type_type = "type Directives :: List' Type\n";
-            // Initialise the directive types argument with name and description (defaulted to "")
-            let mut directive_argument = Argument::new_type("Directive")
-                .with_argument(Argument::new_type(&format!(r#""{directive_name}""#)))
-                .with_argument(Argument::new_type(&format!(r#""{description}""#)));
-
-            // Build the arguments record
-            let mut directive_args_rec = PurescriptRecord::new("Arguments");
-            for arg in directive.args.iter() {
-                let arg_name = arg.name.clone();
-                // TODO use the shared mutable imports as a mutex rather than a placeholder
-                let arg_type = wrap_type(
-                    Argument::new_type(&arg.ty.name.clone()),
-                    &arg.ty.wrapping,
-                    &mut vec![],
-                );
-
-                directive_args_rec.add_field(Field::new(&arg_name).with_type_arg(arg_type));
-            }
-            directive_argument.add_argument(Argument::new_record(directive_args_rec));
-
-            // Add the locations to the directive type
-            // TODO Make this work for multiple locations. Ask Rory how this should work.
-            let locations_type = match locations[0] {
-                DirectiveLocation::Query => "QUERY",
-                DirectiveLocation::Mutation => "MUTATION",
-                DirectiveLocation::Subscription => "SUBSCRIPTION",
-                _ => "QUERY",
-            };
-            let locations_type_level_list =
-                Argument::new_type(&format!("({locations_type} :> Nil') :> Nil'"));
-            directive_argument.add_argument(locations_type_level_list);
-
-            // Define the directives type
-            let directive_type = PurescriptType::new("Directives", vec![], directive_argument);
-            directive_types.push_str(&type_type);
-            directive_types.push_str(&directive_type.to_string());
+fn wrap_type_str(mut str: String, wrapping: &FieldWrapping) -> String {
+    let wrapping: Vec<WrappingType> = wrapping.into_iter().collect();
+    for wrapper in wrapping.iter().rev() {
+        match wrapper {
+            WrappingType::NonNull => str = format!("NotNull {str}"),
+            WrappingType::List => str = format!("Array {str}"),
         }
-        // Add the apply directive function
-        let function = format!(
-            r#"
+    }
+    str
+}
+
+fn directive_type_str(directive: &Directive) -> Option<String> {
+    let name = &directive.name;
+    let description = directive.description.clone().unwrap_or("".to_string());
+    let args: String = directive
+        .args
+        .iter()
+        .map(input_value_type_str)
+        .collect::<Vec<String>>()
+        .join("\n    , ");
+    let locations = directive_locations_str(&directive.locations)?;
+
+    Some(format!("( Directive \"{name}\" \n    \"{description}\" \n    {{ {args} }}  \n    {locations} \n  )"))
+}
+
+fn directive_locations_str(locations: &Vec<DirectiveLocation>) -> Option<String> {
+    let locations_strs = locations
+        .iter()
+        .filter_map(directive_location_str)
+        .map(|s| format!("{s} :> "))
+        .collect::<Vec<_>>();
+
+    if locations_strs.len() == 0 {
+        return None;
+    }
+    let location_str = locations_strs.join("");
+
+    Some(format!("({location_str} Nil' )"))
+}
+
+fn directive_location_str(location: &DirectiveLocation) -> Option<&str> {
+    match location {
+        DirectiveLocation::Query => Some("QUERY"),
+        DirectiveLocation::Mutation => Some("MUTATION"),
+        DirectiveLocation::Subscription => Some("SUBSCRIPTION"),
+        _ => None,
+    }
+}
+
+fn input_value_type_str(value: &InputValue) -> String {
+    let name = show_field_name(value.name.clone());
+    let prop_value = wrap_type_str(value.ty.name.clone(), &value.ty.wrapping);
+    format!("\"{name}\" :: {prop_value}")
+}
+
+fn directive_fn(directive: &Directive) -> String {
+    let directive_name = &directive.name;
+    format!(
+        r#"
 {directive_name} :: forall q args. args -> q -> ApplyDirective "{directive_name}" args q
 {directive_name} = applyDir (Proxy :: _ "{directive_name}")
 "#
-        );
-        directive_functions.push_str(&function);
-    }
+    )
+}
 
-    directive_mod.push_str([directive_types, directive_functions].join("\n").trim());
+/// Format the schema directives into a separate module.
+/// TODO stop directives from being hardcoded string mods with bad imports just for our simple use...
+fn build_directives(lib_path: String, role: String, directives: Vec<Directive>) {
+    let directive_str: String = directives
+        .iter()
+        .filter_map(|directive| directive_type_str(&directive))
+        .map(|d| format!("{d}\n  :>\n"))
+        .collect::<Vec<String>>()
+        .join("");
+
+    let directive_str = format!("type Directives =\n {directive_str}\n  Nil'");
+
+    let directive_fns = directives
+        .iter()
+        .map(|directive| directive_fn(&directive))
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    let mut directive_mod = "".to_string();
+    // Push the module header + types type + declaration to the directive module
+    directive_mod.push_str(&format!(
+        "module {role}.Directives where \n{DIRECTIVE_IMPORTS}\ntype Directives :: List' Type\n{directive_str}\n\n{directive_fns}"
+    ));
 
     write(
         &format!("{lib_path}/src/{role}/Directives.purs"),
@@ -486,21 +596,13 @@ fn build_directives(lib_path: String, role: String, directives: Vec<Directive>) 
     );
 }
 
-fn is_allowed_location(location: &DirectiveLocation) -> bool {
-    ALLOWED_DIRECTIVE_LOCATIONS.contains(location)
-}
-
-static ALLOWED_DIRECTIVE_LOCATIONS: [DirectiveLocation; 3] = [
-    DirectiveLocation::Query,
-    DirectiveLocation::Mutation,
-    DirectiveLocation::Subscription,
-];
-
 const DIRECTIVE_IMPORTS: &str = r#"
+import Prelude
 import GraphQL.Client.Args (NotNull)
 import GraphQL.Client.Directive (ApplyDirective, applyDir)
 import GraphQL.Client.Directive.Definition (Directive)
-import GraphQL.Client.Directive.Location (QUERY)
+import GraphQL.Client.Directive.Location (MUTATION, QUERY, SUBSCRIPTION)
+import GraphQL.Client.Operation (OpMutation(..), OpQuery(..), OpSubscription(..))
 import Type.Data.List (type (:>), List', Nil')
 import Type.Proxy (Proxy(..))
 

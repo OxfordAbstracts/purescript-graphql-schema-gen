@@ -1,5 +1,7 @@
 use super::purescript_argument::Argument;
 
+
+#[derive(Debug)]
 pub struct PurescriptType {
     pub name: String,
     arguments: Vec<String>,

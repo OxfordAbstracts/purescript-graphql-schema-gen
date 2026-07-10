@@ -5,6 +5,7 @@ use crate::config::workspace::WorkspaceConfig;
 use crate::purescript_gen::purescript_enum::Enum;
 use crate::purescript_gen::purescript_import::PurescriptImport;
 use crate::purescript_gen::purescript_variant::Variant;
+use crate::purescript_gen::upper_first::upper_first;
 use crate::write::write;
 
 pub async fn generate_enum(
@@ -31,10 +32,10 @@ pub async fn generate_enum(
     {
         vec!["ENUM_PLACEHOLDER".to_string()]
     } else {
-        en.values.iter().map(|v| first_upper(&v.name)).collect()
+        en.values.iter().map(|v| upper_first(&v.name)).collect()
     };
     let original_values: Vec<String> = en.values.iter().map(|v| v.name.clone()).collect();
-    let name: String = pascal_case(&en.name);
+    let name: String = upper_first(&en.name);
 
     // Some enums are shared between all schemas
     // Hasura suffixes 'Enum' to the end of custom enums created
@@ -50,7 +51,8 @@ pub async fn generate_enum(
                 &workspace_config.shared_graphql_enums_lib
             );
             let package_name = pascal_case(&workspace_config.shared_graphql_enums_lib);
-            let module_name = format!("{package_name}.{name}");
+            let name_pascal = pascal_case(&name);
+            let module_name = format!("{package_name}.{name_pascal}");
             let helper_module = format!("{package_name}.Utils.VariantHelpers");
             if let Some(variant) = variant_mod(
                 &name,
@@ -59,17 +61,17 @@ pub async fn generate_enum(
                 &format!("\nimport {helper_module} (var, match)"),
             ) {
                 imports
-                    .push(PurescriptImport::new(&module_name, "oa-gql-enums").add_specified(&name));
+                    .push(PurescriptImport::new(&module_name, &workspace_config.enums_package_name).add_specified(&name));
 
                 write(
-                    &format!("{lib_path}/src/{package_name}/{name}.purs"),
+                    &format!("{lib_path}/src/{package_name}/{module_name}.purs"),
                     &variant,
                 );
                 write(
                     &format!("{lib_path}/src/{package_name}/Utils/VariantHelpers.purs"),
                     &format!("module {helper_module} where \n{VARIANT_HELPERS_MOD}"),
                 );
-                write(&format!("{lib_path}/spago.yaml"), &enums_spago_yaml());
+                write(&format!("{lib_path}/spago.yaml"), &enums_spago_yaml(&workspace_config.enums_package_name));
             }
 
             None
@@ -78,8 +80,9 @@ pub async fn generate_enum(
 
             let instances = enum_instances(&name, &values, &original_values);
             let package_name = pascal_case(&workspace_config.shared_graphql_enums_lib);
-            let module_name = format!("{package_name}.{name}");
-            imports.push(PurescriptImport::new(&module_name, "oa-gql-enums").add_specified(&name));
+            let name_pascal = pascal_case(&name);
+            let module_name = format!("{package_name}.{name_pascal}");
+            imports.push(PurescriptImport::new(&module_name, &workspace_config.enums_package_name).add_specified(&name));
 
             let lib_path = format!(
                 "{}{}",
@@ -87,30 +90,22 @@ pub async fn generate_enum(
                 &workspace_config.shared_graphql_enums_lib
             );
             write(
-                &format!("{lib_path}/src/{package_name}/{name}.purs"),
+                &format!("{lib_path}/src/{package_name}/{name_pascal}.purs"),
                 &format!(
                     "module {module_name} ({name}(..)) where\n\n{MODULE_IMPORTS}\n\n{e}{instances}"
                 ),
             );
-            write(&format!("{lib_path}/spago.yaml"), &enums_spago_yaml());
+            write(&format!("{lib_path}/spago.yaml"), &enums_spago_yaml(&workspace_config.enums_package_name));
             None
         }
     // Otherwise write schema-specific variant enums
     } else {
-        Some(Variant::new(&name).with_values(&original_values))
+        Some(Variant::new(&name).with_values(&original_values).clone())
     }
 }
 
 fn use_variant(name: &str, workspace_config: &WorkspaceConfig) -> bool {
     workspace_config.variant_enums.iter().any(|e| name == e)
-}
-
-fn first_upper(s: &str) -> String {
-    let mut c = s.chars();
-    match c.next() {
-        None => String::new(),
-        Some(f) => f.to_uppercase().collect::<String>() + c.as_str(),
-    }
 }
 
 fn enum_instances(name: &str, values: &Vec<String>, original_values: &Vec<String>) -> String {
@@ -404,9 +399,11 @@ fn to_variant(type_name: &str, name: &str) -> String {
     )
 }
 
-fn enums_spago_yaml() -> String {
+fn enums_spago_yaml(package_name: &str) -> String {
+
+  format!(
     r#"package:
-  name: oa-gql-enums
+  name: {package_name}
   dependencies:
     - argonaut-codecs
     - bifunctors

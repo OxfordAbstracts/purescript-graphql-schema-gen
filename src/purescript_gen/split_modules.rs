@@ -214,8 +214,6 @@ pub fn print_split_modules(
         &merged_imports,
         &chunk_names,
         &index_of,
-        &decls,
-        &chunk_of,
     ));
 
     modules
@@ -229,8 +227,6 @@ fn top_module(
     merged_imports: &Vec<PurescriptImport>,
     chunk_names: &Vec<String>,
     index_of: &HashMap<String, usize>,
-    decls: &Vec<Decl>,
-    chunk_of: &HashMap<usize, usize>,
 ) -> (String, String) {
     let record_bodies = schema_records
         .iter()
@@ -239,22 +235,12 @@ fn top_module(
         .join("\n\n");
     let tokens = tokenize(&record_bodies);
 
-    // Unqualified imports for the generated types the Schema record refers to
-    let mut internal: BTreeMap<&str, BTreeSet<&str>> = BTreeMap::new();
-    for token in &tokens {
-        if let Some(i) = index_of.get(token) {
-            internal
-                .entry(&chunk_names[chunk_of[i]])
-                .or_default()
-                .insert(&decls[*i].name);
-        }
-    }
+    // Generated types the Schema record refers to are used through the Export
+    // qualifier: importing a chunk both explicitly and `as Export` would raise
+    // DuplicateSelectiveImport warnings.
+    let record_bodies = qualify_tokens(&record_bodies, "Export", index_of);
 
     let mut import_lines = filter_external_imports(merged_imports, &tokens);
-    for (module, names) in internal {
-        let names = names.into_iter().collect::<Vec<&str>>().join(", ");
-        import_lines.push(format!("import {module} ({names})"));
-    }
     for chunk_name in chunk_names {
         import_lines.push(format!("import {chunk_name} as Export"));
     }
@@ -337,6 +323,40 @@ impl Decl {
             body,
         }
     }
+}
+
+/// Prefix every token that names a generated declaration with a module
+/// qualifier, leaving string literals and other tokens untouched.
+fn qualify_tokens(s: &str, qualifier: &str, names: &HashMap<String, usize>) -> String {
+    let mut out = String::with_capacity(s.len());
+    let mut current = String::new();
+    let mut in_string = false;
+    let flush = |current: &mut String, out: &mut String| {
+        if !current.is_empty() {
+            if names.contains_key(current.as_str()) {
+                out.push_str(qualifier);
+                out.push('.');
+            }
+            out.push_str(current);
+            current.clear();
+        }
+    };
+    for c in s.chars() {
+        if c == '"' {
+            flush(&mut current, &mut out);
+            in_string = !in_string;
+            out.push(c);
+        } else if in_string {
+            out.push(c);
+        } else if c.is_ascii_alphanumeric() || c == '_' || c == '\'' {
+            current.push(c);
+        } else {
+            flush(&mut current, &mut out);
+            out.push(c);
+        }
+    }
+    flush(&mut current, &mut out);
+    out
 }
 
 fn build_index(decls: &Vec<Decl>) -> HashMap<String, usize> {
@@ -512,6 +532,19 @@ mod tests {
         assert_eq!(level_of(1), 0);
         assert_eq!(level_of(2), 1);
         assert_eq!(level_of(3), 0);
+    }
+
+    #[test]
+    fn qualifies_only_known_declaration_tokens() {
+        let names = HashMap::from([("Query".to_string(), 0), ("Mutation".to_string(), 1)]);
+        let out = qualify_tokens(
+            "type Schema =\n  { query :: Query\n  , directives :: Proxy Directives\n  , mutation :: Mutation\n  }",
+            "Export",
+            &names,
+        );
+        assert!(out.contains("query :: Export.Query"));
+        assert!(out.contains("mutation :: Export.Mutation"));
+        assert!(out.contains("Proxy Directives"), "external names untouched");
     }
 
     #[test]

@@ -3,6 +3,7 @@ pub mod purescript_enum;
 pub mod purescript_import;
 pub mod purescript_instance;
 pub mod purescript_print_module;
+pub mod prune;
 pub mod purescript_record;
 pub mod purescript_type;
 pub mod purescript_variant;

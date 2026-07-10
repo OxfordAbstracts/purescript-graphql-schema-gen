@@ -67,3 +67,27 @@ templates
 ```
 
 The keys don't have to exist on the object you call the template for, but any keys that do match will be replaced with the template value.
+
+## Skipping unused schema plumbing
+
+`skip_types` takes a list of regexes matched against GraphQL type names:
+matching types are not generated, matching field return types drop the field,
+and matching argument types drop the argument. `skip_keys` does the same for
+field names. Prefix a pattern with `!` to negate it; the last matching rule
+wins. Types left unreachable from the schema roots after skipping are pruned
+automatically, along with imports nothing uses.
+
+```yaml
+skip_types:
+  - "_stddev"
+  - "_var_pop"
+  - "_var_samp"
+  - "_variance"
+  - "_stream_cursor"
+skip_keys:
+  - "_stream$"
+```
+
+Regeneration is also incremental: files are only written when their content
+changes (unchanged files keep their mtimes, so purs skips them cheaply), and
+files from previous runs that are no longer generated are swept afterwards.

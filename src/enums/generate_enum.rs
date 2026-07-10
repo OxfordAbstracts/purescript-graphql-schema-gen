@@ -405,23 +405,22 @@ fn enums_spago_yaml(package_name: &str) -> String {
     r#"package:
   name: {package_name}
   dependencies:
-    - argonaut
     - argonaut-codecs
-    - arrays
     - bifunctors
     - either
     - enums
     - foreign
     - foreign-generic
     - graphql-client
+    - maybe
+    - newtype
+    - oa-encode-decode
+    - oa-make-fixture
     - prelude
-    - simple-json
     - transformers
     - variant
-    - oa-make-fixture
-    - oa-encode-decode
-"#)
-
+"#
+    .to_string()
 }
 
 const MODULE_IMPORTS: &str = r#"import Prelude
